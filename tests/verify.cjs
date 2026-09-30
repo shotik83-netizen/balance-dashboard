@@ -52,7 +52,7 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
   run(`activeReport=${JSON.stringify(reportId)};chooseOwner('Подрядчик 1')`);
   const first=run('selectedColumns(currentReport())[0]');context.firstContract=first;
   run("$('contractChips').onchange({target:{dataset:{contract:firstContract.key},checked:false}})");
-  assert.equal(run('selectedColumns(currentReport()).length'),1);assert.ok(!element('reportArea').innerHTML.includes(`<th>${first.contract}<small>`));
+  assert.equal(run('selectedColumns(currentReport()).length'),1);assert.ok(!element('reportArea').innerHTML.includes('Итого по подрядчику'));assert.ok(element('totalFilter').classList.contains('hidden'));assert.ok(!element('reportArea').innerHTML.includes(`<th>${first.contract}<small>`));
   const chosen=run('selectedColumns(currentReport())[0]'),r=run('currentReport()');
   approx(run('totals(currentReport(),selectedColumns(currentReport()),currentReport().rows[0],targetCurrency())[groupCurrency(currentReport(),selectedColumns(currentReport())[0],targetCurrency())].value'),independent[r.report.sheet][chosen.letter+r.rows[0].row].v*r.report.sourceScale);
   assert.ok(element('kpis').innerHTML.includes(run('totalText(currentReport(),selectedColumns(currentReport()),currentReport().rows[0],false)')));assert.equal(element('contractSummary').textContent,'Договоры · выбрано 1 из 2');
