@@ -22,6 +22,7 @@ $('adminSide').onclick=admin;$('loadFileWelcome').onclick=()=>$('excelFile').cli
 $('allContractors').onclick=()=>chooseOwner(null);$('ownerSearch').oninput=()=>{if(book)renderMenu();};$('ownerMenu').onclick=e=>{const el=e.target.closest('[data-owner]');if(el)chooseOwner(el.dataset.owner);};
 $('contractChips').onchange=e=>{if(e.target.dataset.contract){e.target.checked?selected.add(e.target.dataset.contract):selected.delete(e.target.dataset.contract);render();}};
 $('selectAll').onclick=()=>{resetSelection();render();};$('selectNone').onclick=()=>{selected.clear();render();};
+$('showContractorTotal').onchange=render;
 for(const id of ['scale','decimals','detailLevel'])$(id).onchange=render;$('metricSearch').oninput=render;
 $('sourceReport').onchange=()=>openReport($('sourceReport').value);
 $('reportArea').onclick=e=>{const ownerButton=e.target.closest('[data-open-owner]');if(ownerButton){chooseOwner(ownerButton.dataset.openOwner);tab='detail';render();}const action=e.target.closest('[data-source-action]')?.dataset.sourceAction;if(action==='file')$('excelFile').click();if(action==='connect')connectSource();if(action==='admin')admin();};

@@ -10,6 +10,7 @@ vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','app'
 function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.ok(Math.abs(a-b)<Math.max(1e-8,Math.abs(b)*1e-12),`${a} ≠ ${b}`);}
 (async()=>{
  const input=process.argv[2]||root+'/data/source.xlsx',raw=fs.readFileSync(input);context.input=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);element('scale').value='1000000';element('decimals').value='0';element('currencyMode').value='rub';element('vatMode').value='gross';
+ element('showContractorTotal').checked=true;
  await run("loadBook(input,'Исходная книга.xlsx','file')");assert.equal(run('book.sheets.length'),4);assert.equal(run('allOwners().length'),25);assert.equal(run('currentReport().columns.length'),31);assert.equal(run('rConfig().vat'),'net');assert.equal(run('currentReport().date'),'15.09.2026');
  // Сверка значений с независимым чтением исходного Excel (openpyxl data_only).
  const independent=JSON.parse(fs.readFileSync(root+'/tests/source-expected.json','utf8'));let count=0;
@@ -46,7 +47,20 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  run("chooseOwner('Подрядчик 1');tab='detail';render()");assert.equal(run('selectedColumns(currentReport()).length'),2);assert.ok(element('pageTitle').textContent.includes('Подрядчик 1'));assert.equal(element('sourceReport').value,'rub-gross');assert.equal(element('connectionStatus').className,'status-chip ok');assert.equal((element('reportArea').innerHTML.match(/data-source-row=/g)||[]).length,run('currentReport().rows.length'));assert.ok(element('reportArea').innerHTML.includes('padding-left:24px'));
  const contract=run('currentReport().columns.find(c=>c.letter==="D")');context.contract=contract;approx(run('selectedValue(currentReport(),contract,currentReport().rows[0],"rub")'),independent['БАЛАНС РУКОВОДСТВУ руб. с НДС'].D5.v*1e6);
  assert.ok(!run('currentReport().columns.some(c=>c.letter==="C")'),'Aggregate C must be excluded');
- run('selected=new Set([contract.key]);render()');assert.equal(run('exportRows()[9].length'),2);const rows=run('exportRows()');assert.equal(rows[10][1],'Подрядчик 1');assert.equal(rows[9][1],'Дог.9756');assert.ok(!rows[9].includes('Дог.10675'));
+ // Реальный обработчик галочек пересчитывает KPI и итог; скрытие итога не меняет выбранные договоры.
+ for(const reportId of ['rub-gross','rub-net','fx-gross','fx-net']){
+  run(`activeReport=${JSON.stringify(reportId)};chooseOwner('Подрядчик 1')`);
+  const first=run('selectedColumns(currentReport())[0]');context.firstContract=first;
+  run("$('contractChips').onchange({target:{dataset:{contract:firstContract.key},checked:false}})");
+  assert.equal(run('selectedColumns(currentReport()).length'),1);assert.ok(!element('reportArea').innerHTML.includes(`<th>${first.contract}<small>`));
+  const chosen=run('selectedColumns(currentReport())[0]'),r=run('currentReport()');
+  approx(run('totals(currentReport(),selectedColumns(currentReport()),currentReport().rows[0],targetCurrency())[groupCurrency(currentReport(),selectedColumns(currentReport())[0],targetCurrency())].value'),independent[r.report.sheet][chosen.letter+r.rows[0].row].v*r.report.sourceScale);
+  assert.ok(element('kpis').innerHTML.includes(run('totalText(currentReport(),selectedColumns(currentReport()),currentReport().rows[0],false)')));assert.equal(element('kpiScope').textContent,'По выбранным договорам · 1 из 2');
+  element('showContractorTotal').checked=false;run("$('showContractorTotal').onchange()");assert.ok(!element('reportArea').innerHTML.includes('Итого по подрядчику'));assert.equal((element('reportArea').innerHTML.match(/<th(?:\s|>)/g)||[]).length,2);assert.equal(run('exportRows()[9].length'),2);
+  run("$('selectNone').onclick()");assert.equal(run('selectedColumns(currentReport()).length'),0);assert.ok(element('kpis').innerHTML.includes('Нет данных'));assert.equal(element('exportXlsx').disabled,true);
+  element('showContractorTotal').checked=true;run("$('showContractorTotal').onchange();$('selectAll').onclick()");assert.equal(run('selectedColumns(currentReport()).length'),2);assert.ok(element('reportArea').innerHTML.includes('Итого по подрядчику'));
+ }
+ run("activeReport='rub-gross';chooseOwner('Подрядчик 1');selected=new Set([contract.key]);render()");assert.equal(run('exportRows()[9].length'),2);const rows=run('exportRows()');assert.equal(rows[10][1],'Подрядчик 1');assert.equal(rows[9][1],'Дог.9756');assert.ok(!rows[9].includes('Дог.10675'));
  context.rows=rows;const blob=run('xlsxFile(rows)');const buffer=await blob.arrayBuffer();context.exported=buffer;const reread=await run('readWorkbook(exported,"export.xlsx")');assert.equal(reread.sheets.length,1);assert.equal(reread.sheets[0].rows[9][1],'Дог.9756');assert.equal(reread.sheets[0].rows[13][1],Math.round(independent['БАЛАНС РУКОВОДСТВУ руб. с НДС'].D5.v));fs.writeFileSync(root+'/../checked-export.xlsx',Buffer.from(buffer));
  run("activeReport='fx-gross';$('currencyMode').value='contract';owner='Подрядчик 1';resetSelection();render()");assert.equal(run('selectedColumns(currentReport()).length'),2);const currencyValue=run('selectedValue(currentReport(),selectedColumns(currentReport())[0],currentReport().rows[0],"contract")');approx(currencyValue,independent['Баланс ФЭК (валюта) с НДС'].E6.v*1e6);
  run("config.reports[1].columns.F={currency:'EUR'}");assert.deepEqual(Object.keys(run('totals(currentReport(),selectedColumns(currentReport()),currentReport().rows[0],"contract")')).sort(),['EUR','USD']);
