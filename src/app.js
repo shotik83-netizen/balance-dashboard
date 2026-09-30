@@ -5,6 +5,7 @@ function showModal(title,body){lastFocus=document.activeElement;$('modalTitle').
 function closeModal(){adminDraft=null;$('modalBack').classList.add('hidden');lastFocus?.focus();}
 function download(name,content,type='application/json'){const blob=content instanceof Blob?content:new Blob([content],{type}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);}
 function dateStamp(){return new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');}
+async function loadEmbeddedSource(){const encoded=$('embedded-source').textContent.trim();if(!encoded)throw Error('Приложенный источник отсутствует. Откройте Excel или укажите ссылку в администрировании.');const binary=atob(encoded),bytes=Uint8Array.from(binary,c=>c.charCodeAt(0));await loadBook(bytes.buffer,'Шаблон баланс взаиморасчетов (1).xlsx','embedded');}
 function rConfig(){return config.reports.find(r=>r.id===activeReport)||config.reports[0];}
 function currentReport(){return extractReport(book,rConfig());}
 function availableReports(){return config.reports.filter(r=>book?.sheets.some(s=>s.name===r.sheet));}
