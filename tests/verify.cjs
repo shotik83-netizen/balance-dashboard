@@ -6,8 +6,18 @@ class DOMParser{parseFromString(s){return new XmlNode(xmljs.xml2js(s,{compact:fa
 const ids=new Map(),downloads=[];function element(id){if(ids.has(id))return ids.get(id);const classes=new Set(id==='modalBack'||id==='dashboard'?['hidden']:[]),e={id,value:'',textContent:'',innerHTML:'',dataset:{},checked:false,disabled:false,onclick:null,classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}},querySelector:()=>element(id+'-sub'),contains:()=>false,focus:()=>{},setAttribute:()=>{},scrollIntoView:()=>{},dispatchEvent:()=>{},append:()=>{},remove:()=>{},click(){if(this.download)downloads.push(this.download);}};ids.set(id,e);return e;}
 const document={getElementById:element,querySelectorAll:()=>[],addEventListener:()=>{},createElement:()=>element('anchor'),body:Object.assign(element('body'),{append:()=>{}}),activeElement:null};
 const context={console,DOMParser,document,location:{href:'https://example.test/index.html'},Blob,Response,DecompressionStream,TextEncoder,TextDecoder,Uint8Array,DataView,URL,AbortController,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,Event,atob,btoa,fetch:()=>{throw Error('Unexpected network');},window:{print:()=>{}},alert:()=>{}};
-vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','bridge','advance','app','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
+vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','bridge','advance','app','print','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
 function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.ok(Math.abs(a-b)<Math.max(1e-8,Math.abs(b)*1e-12),`${a} ≠ ${b}`);}
+// The reference screenshot and both portrait/landscape screens must fit without stretching.
+for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
+ context.printWidth=width;context.printHeight=height;
+ const fit=run('printFit(printWidth,printHeight)'),paper=run('PRINT_PAPER');
+ assert.ok(fit.left>=0&&fit.top>=0);
+ assert.ok(width*fit.scale+2*fit.left<=paper.width+1e-8);
+ assert.ok(height*fit.scale<=paper.height+1e-8);
+ approx((width*fit.scale)/(height*fit.scale),width/height);
+ assert.ok(Math.abs(width*fit.scale-paper.width)<1e-8||Math.abs(height*fit.scale-paper.height)<1e-8);
+}
 (async()=>{
  const input=process.argv[2]||root+'/data/source.xlsx',raw=fs.readFileSync(input);context.input=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);element('scale').value='1000000';element('decimals').value='0';element('currencyMode').value='rub';element('vatMode').value='gross';
  element('showContractorTotal').checked=true;
