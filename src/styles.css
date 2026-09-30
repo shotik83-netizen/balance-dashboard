@@ -95,14 +95,14 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
  body{height:auto!important;display:block!important;font-size:10px;background:#fff}
  .top,.header-kpis{display:none!important}
  .workspace,.main{height:auto!important;overflow:visible!important;padding:0!important}
- #dashboard.detail-layout{display:grid!important;grid-template-columns:minmax(0,var(--print-balance-width,448px)) minmax(0,1fr);gap:12px;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
+ #dashboard.detail-layout{display:table!important;table-layout:fixed;width:100%!important;border-spacing:0;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
  #dashboard.detail-layout .balance-column,#dashboard.detail-layout .bridge-column{width:auto!important;max-width:none!important;height:auto!important;min-width:0}
- #dashboard.detail-layout .balance-column{display:block!important;grid-column:1;grid-row:1}
- #dashboard.detail-layout .bridge-column{display:flex!important;flex-direction:column;gap:12px;grid-column:2;grid-row:1}
+ #dashboard.detail-layout .balance-column{display:table-cell!important;width:var(--print-balance-width,448px)!important;padding-right:12px;vertical-align:top;float:none;box-sizing:border-box}
+ #dashboard.detail-layout .bridge-column{display:table-cell!important;width:auto!important;vertical-align:top;float:none}
  #dashboard.detail-layout .payment-bridge,#dashboard.detail-layout .advance-block{flex:none;align-self:stretch;width:100%;min-width:0;max-width:none;box-sizing:border-box}
- #dashboard.detail-layout .payment-bridge{display:block!important;container-type:normal;container-name:none}
- #dashboard.detail-layout .bridge-content,#dashboard.detail-layout .bridge-figure,#dashboard.detail-layout .bridge-plot{width:100%;min-width:0;max-width:none}
- #dashboard.detail-layout .bridge-plot svg{display:block;width:100%;height:100%;max-width:none}
+ #dashboard.detail-layout .payment-bridge{display:block!important;width:100%!important;align-self:stretch!important;contain:none!important;container-type:normal!important;container-name:none!important;float:none;margin:0!important}
+ #dashboard.detail-layout .bridge-content,#dashboard.detail-layout .bridge-figure,#dashboard.detail-layout .bridge-plot{display:block!important;width:100%!important;min-width:0!important;max-width:none!important;contain:none!important}
+ #dashboard.detail-layout .bridge-plot svg{display:block!important;width:100%!important;height:220px!important;max-width:none!important}
  #dashboard.detail-layout .balance-panel{width:100%!important;height:auto!important;min-height:0;overflow:visible;border:1px solid var(--line);border-radius:6px;flex:none}
  .balance-card-heading{min-height:0;padding:7px 8px;break-after:avoid}.balance-card-heading h2{font-size:12px}
  #reportArea,#reportArea>.card,.tablewrap{height:auto!important;max-height:none!important;overflow:visible!important}
@@ -116,6 +116,7 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
  .bridge-column>.payment-bridge{height:auto!important;min-height:0!important;padding:8px;overflow:visible!important;flex:none;break-inside:avoid}
  .bridge-content{max-height:none!important;gap:12px}.bridge-figure figcaption{margin-bottom:8px}.bridge-figure h3{font-size:11px}.bridge-figure figcaption p{font-size:9px;margin-top:3px}
  .bridge-plot{height:220px}.bridge-value{font-size:10px;line-height:12px;margin-top:-3px}.bridge-labels{font-size:8px;line-height:14px}.bridge-method{display:none!important}
+ #dashboard.detail-layout .bridge-column>.advance-block{margin-top:12px!important}
  .advance-block{width:100%;margin:0!important;break-inside:avoid}.advance-heading{min-height:0;padding:7px 8px;flex-wrap:wrap;gap:4px}.advance-heading h3{font-size:10px}.advance-heading span{font-size:8px}
  .advance-tablewrap{overflow:visible}.advance-table{width:100%;min-width:0!important;font-size:9px}.advance-table th:first-child{width:46%}.advance-table thead th{font-size:8px;padding:5px 3px}
  .advance-table tbody th,.advance-table td{font-size:9.5px;line-height:1.25;padding:7px 4px}.advance-table td{text-align:center}
