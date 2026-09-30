@@ -24,10 +24,10 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
    context.groupColumns=group.columns;context.groupRow=row;context.aggregateCurrency=group.currency;
    approx(run('totals(currentReport(),groupColumns,groupRow,targetCurrency())[aggregateCurrency].value'),values.reduce((a,b)=>a+b,0)*report.report.sourceScale);aggregateChecks++;
   }
-  assert.ok(element('reportArea').innerHTML.includes(report.rows[0].label));assert.ok(element('reportTabs').innerHTML.includes('Валюта · без НДС'));
+  assert.ok(element('reportArea').innerHTML.includes(report.rows[0].label));assert.equal((element('reportArea').innerHTML.match(/data-source-row=/g)||[]).length,report.rows.length);for(const row of report.rows)assert.ok(element('reportArea').innerHTML.includes('data-source-row=\"'+row.row+'\"'),`Missing rendered source row ${row.row}`);assert.ok(element('reportArea').innerHTML.includes(report.rows.at(-1).label));assert.ok(element('reportTabs').innerHTML.includes('Валюта · без НДС'));
  }
  run("activeReport='rub-gross';owner=null;tab='summary';$('currencyMode').value='rub';resetSelection();render()");
- assert.equal(run('currentReport().rows.find(row=>row.row===14).indent'),3);assert.equal(run('currentReport().rows[0].strong'),true);
+ assert.equal(run('currentReport().rows.find(row=>row.row===14).indent'),3);assert.equal(run('currentReport().rows[0].strong'),true);assert.ok(element('reportArea').innerHTML.includes('padding-left:36px'));assert.ok(element('reportArea').innerHTML.includes('data-open-owner=\"Подрядчик 25\"'));assert.ok(element('reportArea').innerHTML.includes('Нет в исходном листе'));
  assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).length'),25);
  assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).find(g=>g.name==="Подрядчик 25").available.length'),0);
  const summaryRows=run('exportRows()');assert.equal(summaryRows[9][1],'Итого');assert.equal(summaryRows[9][2],'Подрядчик 1');assert.ok(!summaryRows[9].some(s=>String(s).startsWith('Дог.')));
@@ -40,7 +40,7 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  run("activeReport='rub-gross';chooseOwner('Подрядчик 25')");assert.equal(run('activeReport'),'rub-net');assert.equal(run('tab'),'detail');assert.equal(run('reportHasOwner(config.reports.find(r=>r.id==="fx-gross"))'),false);
  run("activeReport='rub-net';chooseOwner('Подрядчик 17')");assert.equal(run('activeReport'),'rub-gross');
  element('embedded-source').textContent=raw.toString('base64');await run('boot()');assert.equal(run('sourceInfo.kind'),'embedded');assert.equal(run('allOwners().length'),25);assert.equal(element('welcome').classList.contains('hidden'),true);
- run("chooseOwner('Подрядчик 1');tab='detail';render()");assert.equal(run('selectedColumns(currentReport()).length'),2);assert.ok(element('pageTitle').textContent.includes('Подрядчик 1'));
+ run("chooseOwner('Подрядчик 1');tab='detail';render()");assert.equal(run('selectedColumns(currentReport()).length'),2);assert.ok(element('pageTitle').textContent.includes('Подрядчик 1'));assert.equal((element('reportArea').innerHTML.match(/data-source-row=/g)||[]).length,run('currentReport().rows.length'));assert.ok(element('reportArea').innerHTML.includes('padding-left:36px'));
  const contract=run('currentReport().columns.find(c=>c.letter==="D")');context.contract=contract;approx(run('selectedValue(currentReport(),contract,currentReport().rows[0],"rub")'),independent['БАЛАНС РУКОВОДСТВУ руб. с НДС'].D5.v*1e6);
  assert.ok(!run('currentReport().columns.some(c=>c.letter==="C")'),'Aggregate C must be excluded');
  run('selected=new Set([contract.key]);render()');assert.equal(run('exportRows()[9].length'),2);const rows=run('exportRows()');assert.equal(rows[10][1],'Подрядчик 1');assert.equal(rows[9][1],'Дог.9756');assert.ok(!rows[9].includes('Дог.10675'));
