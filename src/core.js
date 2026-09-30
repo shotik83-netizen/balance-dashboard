@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION='1.3.1';
+const APP_VERSION='1.3.2';
 const DEFAULT_CONFIG={schemaVersion:1,title:'Баланс взаиморасчётов',sourceUrl:'',configUrl:'',workspaceUrl:'',credentials:'same-origin',defaultScale:1000000,defaultDecimals:0,reports:[
  {id:'rub-gross',label:'Рубли · с НДС',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],columns:{},rows:{}},
  {id:'fx-gross',label:'Валюта · с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],columns:{},rows:{}},
