@@ -15,7 +15,7 @@ function paymentBridgeData(r,cols){
   return {currency,values,issues,steps,remaining:running};
  });
 }
-function bridgeNumber(value){const text=displayValue(value,{type:'money'});return text.length>11?new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:1}).format(value):text;}
+function bridgeNumber(value){const text=displayValue(value,{type:'money'});return text.length>11?new Intl.NumberFormat('ru-RU',{notation:'compact',maximumFractionDigits:Number($('decimals').value)}).format(value):text;}
 function bridgeFigure(data,index){
  const unit=Number($('scale').value)===1000000?'млн':Number($('scale').value)===1000?'тыс.':'ед.',caption=`${unit} ${data.currency} · ${rConfig().vat==='gross'?'с НДС':'без НДС'}`;
  if(data.issues.length)return `<figure class="bridge-figure"><figcaption><h3>От контракта до остатка оплат</h3><p>${esc(caption)}</p></figcaption><div class="bridge-empty">Нет данных: ${esc(data.issues.join(', '))}</div></figure>`;

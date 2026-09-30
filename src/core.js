@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION='1.6.1';
+const APP_VERSION='1.6.2';
 const DEFAULT_CONFIG={schemaVersion:1,title:'Баланс взаиморасчётов',sourceUrl:'',configUrl:'',workspaceUrl:'',credentials:'same-origin',defaultScale:1000000,defaultDecimals:0,showKpis:true,hideUnavailableContractors:true,advanceBlockPosition:'bridge',contractors:Array.from({length:25},(_,i)=>({name:'Подрядчик '+(i+1),visible:true})),reports:[
  {id:'rub-gross',label:'Рубли · с НДС',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],bridge:{contract:[5],paid:[13],advances:[17],retention:[32],payable:[27]},advanceMetrics:{acts:[8],uncredited:[24],credited:[20]},columns:{},rows:{9:{visible:false},11:{visible:false}}},
  {id:'fx-gross',label:'Валюта · с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],bridge:{contract:[6],paid:[11],advances:[15],retention:[30],payable:[25]},advanceMetrics:{acts:[8],uncredited:[22],credited:[18]},columns:{},rows:{}},
@@ -44,5 +44,5 @@ function selectedValue(report,col,row,target){
 }
 function groupCurrency(report,col,target){return report.report.currencyMode==='contract'&&target==='rub'?'RUB':col.currency;}
 function totals(report,columns,row,target){const g={};for(const c of columns){const currency=groupCurrency(report,c,target),v=selectedValue(report,c,row,target);g[currency]??={value:0,missing:0,errors:[]};if(v===null)g[currency].missing++;else if(typeof v==='number')g[currency].value+=v;else g[currency].errors.push(String(v));}return g;}
-function displayedNumber(v,row,scale,decimals){if(v===null||v===undefined||v==='')return 'Нет данных';if(typeof v!=='number')return String(v);const n=row.type==='percent'?v*100:v/scale,dp=row.type==='percent'?1:decimals;if(Math.abs(n)<.5*10**(-dp))return '—';return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:dp,maximumFractionDigits:dp}).format(n)+(row.type==='percent'?' %':'');}
+function displayedNumber(v,row,scale,decimals){if(v===null||v===undefined||v==='')return 'Нет данных';if(typeof v!=='number')return String(v);const n=row.type==='percent'?v*100:v/scale,dp=decimals;if(Math.abs(n)<.5*10**(-dp))return '—';return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:dp,maximumFractionDigits:dp}).format(n)+(row.type==='percent'?' %':'');}
 function csvCell(v){let s=String(v??'');if(/^[=+@-]/.test(s)&&typeof v!=='number')s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
