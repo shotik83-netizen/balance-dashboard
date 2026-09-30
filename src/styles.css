@@ -66,7 +66,7 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
 @media(max-width:700px){#dashboard.detail-layout{display:block;overflow:visible}.payment-bridge{height:auto;min-height:390px;margin-top:12px;padding:24px 8px}.bridge-content{max-height:none}}
 @media print{#dashboard.detail-layout{display:block;overflow:visible}.payment-bridge{height:auto;padding:24px 0;break-inside:avoid}.bridge-content{max-height:none}.bridge-method{display:none}.bridge-value,.bridge-labels{font-size:10px}}
 
-/* Four advance metrics can sit below the balance or below its bridge. */
+/* Five advance metrics can sit below the balance or below its bridge. */
 .balance-column{height:100%;min-height:0;min-width:0;width:100%;display:flex;flex-direction:column;gap:12px}
 .balance-column>.balance-panel{flex:1 1 0;height:auto;min-height:0;max-width:100%;width:100%}
 #dashboard.detail-layout .balance-column{flex:0 0 auto;width:calc(var(--balance-width) + 2px);max-width:100%}
@@ -80,9 +80,11 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
 .advance-table th:first-child{width:var(--advance-label-width)}.advance-table thead th{padding:5px 6px;background:#eef4f5;color:var(--navy);font-size:10px;line-height:1.25;white-space:normal;text-align:center}
 .advance-table thead th:first-child{text-align:left}.advance-table thead small{display:block;font-size:9px;font-weight:400;color:var(--muted);margin-top:2px}
 .advance-table tbody th{font-weight:400;text-align:left;padding:5px 6px;line-height:1.25;background:#fff;color:var(--text);border-bottom:1px solid var(--line)}
-.advance-table td{font-size:12px;text-align:right;padding:5px 6px;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid var(--line)}
+.advance-table td{font-size:12px;text-align:center;padding:5px 6px;line-height:1.25;font-variant-numeric:tabular-nums;white-space:nowrap;border-bottom:1px solid var(--line)}
 .advance-table tbody tr:last-child th,.advance-table tbody tr:last-child td{border-bottom:0}.advance-empty{padding:8px 12px;font-size:11px;color:var(--muted)}
 #bridgeColumn .advance-block{--advance-label-width:180px;--advance-number-width:104px}
 .advance-position{display:flex;gap:12px;align-items:center;margin-top:16px;font-size:13px}.advance-position select{padding:7px 10px}
 @media(max-width:700px){.balance-column{height:auto}.balance-column>.balance-panel,#dashboard.detail-layout .balance-column>.balance-panel{height:auto;flex:none}.bridge-column{height:auto;margin-top:12px}.bridge-column>.payment-bridge{height:auto;min-height:390px;flex:none;margin-top:0}#dashboard.detail-layout .balance-column{width:100%}.advance-block{--advance-label-width:240px}}
 @media print{.balance-column,.bridge-column{display:block;height:auto;width:100%!important}.balance-column>.balance-panel,#dashboard.detail-layout .balance-column>.balance-panel{height:auto;flex:none}.advance-block{break-inside:avoid;margin-top:12px}.bridge-column>.payment-bridge{height:auto}.advance-table{min-width:0}}
+
+.bridge-column>.payment-bridge{background:#fff;border:1px solid var(--line);border-radius:8px}
