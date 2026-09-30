@@ -30,9 +30,32 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  }
  run("activeReport='rub-gross';owner=null;tab='summary';$('currencyMode').value='rub';resetSelection();render()");
  const fullTotal=run('totalText(currentReport(),selectedColumns(currentReport()),currentReport().rows.find(row=>row.row===12),false)');run("$('detailLevel').value='2';render()");assert.ok(!element('reportArea').innerHTML.includes('data-source-row=\"14\"'));assert.ok(element('reportArea').innerHTML.includes('data-source-row=\"13\"'));assert.equal(run('totalText(currentReport(),selectedColumns(currentReport()),currentReport().rows.find(row=>row.row===12),false)'),fullTotal);run("$('detailLevel').value='1';render()");assert.equal(run('viewRows(currentReport()).filter(row=>row.level===1).map(row=>row.headingLabel).join(",")'),'Выполнено,Профинансировано,Задолженность,Обеспечение,Баланс');assert.ok(!element('reportArea').innerHTML.includes('data-source-row=\"13\"'));run("$('detailLevel').value='3';render()");
- assert.equal(run('currentReport().rows.find(row=>row.row===14).indent'),3);assert.equal(run('currentReport().rows[0].strong'),true);assert.ok(element('reportArea').innerHTML.includes('padding-left:24px'));assert.ok(element('reportArea').innerHTML.includes('data-open-owner=\"Подрядчик 25\"'));assert.ok(element('reportArea').innerHTML.includes('Нет в исходном листе'));
- assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).length'),25);
+ assert.equal(run('currentReport().rows.find(row=>row.row===14).indent'),3);assert.equal(run('currentReport().rows[0].strong'),true);assert.ok(element('reportArea').innerHTML.includes('padding-left:24px'));
+ // Без данных в выбранном листе подрядчик скрыт по умолчанию; настройка доступна в администрировании.
+ assert.equal(run('config.hideUnavailableContractors'),true);
+ for(const [reportId,expected] of [['rub-gross',24],['rub-net',22],['fx-gross',4],['fx-net',4]]){
+  run(`openReport(${JSON.stringify(reportId)})`);
+  assert.equal(run('visibleOwners().length'),expected);assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).length'),expected);
+  assert.ok(!element('reportArea').innerHTML.includes('Нет в исходном листе'));
+  assert.equal(run('exportRows()[9].length'),expected+2);
+ }
+ run("openReport('rub-gross');setEditing(true);admin()");assert.ok(element('modalBody').innerHTML.includes('data-global="hideUnavailableContractors"'));
+ run('adminChange({target:{dataset:{global:"hideUnavailableContractors"},checked:false}});applyAdmin()');
+ assert.equal(run('visibleOwners().length'),25);assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).length'),25);
+ assert.ok(element('reportArea').innerHTML.includes('data-open-owner="Подрядчик 25"'));assert.ok(element('reportArea').innerHTML.includes('Нет в исходном листе'));
  assert.equal(run('summaryGroups(currentReport(),selectedColumns(currentReport())).find(g=>g.name==="Подрядчик 25").available.length'),0);
+ assert.equal(run('validateConfig(JSON.parse(JSON.stringify(config))).hideUnavailableContractors'),false);
+ run('admin();adminChange({target:{dataset:{global:"hideUnavailableContractors"},checked:true}});applyAdmin();setEditing(false)');
+ assert.ok(!element('ownerMenu').innerHTML.includes('data-owner="Подрядчик 25"'));assert.ok(!run('exportRows()[9]').includes('Подрядчик 25'));
+ // Заголовок подрядчика без значений тоже скрывается. Нули и ошибки источника остаются видимыми.
+ context.savedCells=run("(()=>{const r=currentReport();return r.columns.filter(c=>c.contractor==='Подрядчик 4').flatMap(c=>r.rows.map(row=>({i:c.index,n:row.row-1,v:r.sheet.rows[row.row-1][c.index]})))})()");
+ run("for(const cell of savedCells)book.sheets[0].rows[cell.n][cell.i]='';resetSelection();render()");
+ assert.ok(!element('ownerMenu').innerHTML.includes('data-owner="Подрядчик 4"'));assert.ok(!run('exportRows()[9]').includes('Подрядчик 4'));assert.ok(run('selectedColumns(currentReport()).every(c=>c.contractor!=="Подрядчик 4")'));
+ run("book.sheets[0].rows[savedCells[0].n][savedCells[0].i]=0;resetSelection();render()");assert.ok(element('ownerMenu').innerHTML.includes('data-owner="Подрядчик 4"'));
+ run("book.sheets[0].rows[savedCells[0].n][savedCells[0].i]='#VALUE!';resetSelection();render()");assert.ok(element('ownerMenu').innerHTML.includes('data-owner="Подрядчик 4"'));
+ run('for(const cell of savedCells)book.sheets[0].rows[cell.n][cell.i]=cell.v;resetSelection();render()');
+ assert.equal(run('validateConfig((()=>{const c=clone(config);delete c.hideUnavailableContractors;return c})()).hideUnavailableContractors'),true);
+ assert.throws(()=>run('validateConfig({...config,hideUnavailableContractors:"true"})'));
  const summaryRows=run('exportRows()');assert.equal(summaryRows[9][1],'Итого');assert.equal(summaryRows[9][2],'Подрядчик 1');assert.ok(!summaryRows[9].some(s=>String(s).startsWith('Дог.')));
  approx(summaryRows[13][2],Math.round(independent['БАЛАНС РУКОВОДСТВУ руб. с НДС'].D5.v+independent['БАЛАНС РУКОВОДСТВУ руб. с НДС'].E5.v));
  const summaryBlob=run('xlsxFile(exportRows())');context.summaryBuffer=await summaryBlob.arrayBuffer();const summaryBook=await run('readWorkbook(summaryBuffer,"summary.xlsx")');
@@ -96,5 +119,5 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  assert.throws(()=>run("validateConfig({...config,reports:config.reports.map(r=>({...r,sourceScale:0}))})"));
  assert.throws(()=>run("safeURL('javascript:alert(1)')"));
  assert.ok(!/(?:localStorage|sessionStorage|indexedDB)\s*[.(]|document\.cookie\s*=/.test(scripts));
- console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','rounding','contract XLSX export roundtrip','automatic config download','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels']}));
+ console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','rounding','contract XLSX export roundtrip','automatic config download','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels']}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
