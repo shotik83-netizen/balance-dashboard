@@ -35,7 +35,7 @@ function extractReport(book,r){
  const p=address(r.dateCell),raw=sheet.rows[p.row]?.[p.col],date=typeof raw==='number'?new Date(Date.UTC(1899,11,30)+raw*86400000).toLocaleDateString('ru-RU',{timeZone:'UTC'}):clean(raw).split(' ')[0];return{report:r,sheet,columns,rows,date};
 }
 function selectedValue(report,col,row,target){
- const raw=getCell(report.sheet,col.index,row.row);if(raw===''||raw===null)return null;if(typeof raw!=='number'||!Number.isFinite(raw))return raw;
+ const raw=getCell(report.sheet,col.index,row.row);if(raw===''||raw===null||typeof raw==='string'&&/^отсутствует$/i.test(raw.trim()))return null;if(typeof raw!=='number'||!Number.isFinite(raw))return raw;
  if(row.type==='percent'||row.section)return raw;
  let v=raw*report.report.sourceScale;
  if(report.report.currencyMode==='contract'&&target==='rub'){if(!col.rate)return '#Нет курса';v*=col.rate;}
