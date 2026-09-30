@@ -41,3 +41,27 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
 @media(max-height:820px) and (min-width:701px){.balance-table td:not(:first-child){font-size:11.5px}}
 @media(max-width:700px){.main{padding:10px 10px 12px}}
 @media print{.balance-table td:not(:first-child){font-size:10px}.main{padding:0}}
+
+/* The contractor balance keeps its width; the bridge is centred in the remaining space. */
+#dashboard.detail-layout{display:flex;gap:18px;overflow-x:auto;overflow-y:hidden}
+#dashboard.detail-layout .balance-panel{flex:0 0 auto}
+.payment-bridge{flex:1 0 320px;min-width:0;height:100%;display:flex;align-items:center;justify-content:center;padding:16px 8px;overflow-y:auto;container-type:inline-size;container-name:bridge}
+.bridge-content{width:100%;max-width:900px;display:flex;flex-direction:column;gap:34px;max-height:100%}
+.bridge-figure{margin:0;width:100%;min-width:0}
+.bridge-figure figcaption{margin-bottom:14px;text-align:center}
+.bridge-figure h3{font-size:14px;font-weight:650;color:var(--navy)}
+.bridge-figure figcaption p{font-size:11px;color:var(--muted);margin-top:5px}
+.bridge-plot{position:relative;width:100%;height:256px}
+.bridge-plot svg{width:100%;height:100%;display:block}
+.bridge-bar{fill:#6f9da5}.bridge-total{fill:var(--navy)}.bridge-end{fill:var(--teal)}
+.bridge-connector{stroke:#9dadb4;stroke-width:1;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.bridge-baseline{stroke:#d6e0e3;stroke-width:1;vector-effect:non-scaling-stroke}
+.bridge-value{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:12px;line-height:18px;font-weight:650;color:var(--text);font-variant-numeric:tabular-nums}
+.bridge-labels{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;font-size:10px;line-height:18px;text-align:center;color:var(--muted)}
+.bridge-label{white-space:nowrap}.bridge-wide{display:none}
+.bridge-method{margin:18px auto 0;max-width:520px;font-size:11px;color:var(--muted)}
+.bridge-method summary{cursor:pointer;text-align:center}.bridge-method p{margin:10px 0;line-height:1.5}.bridge-method dl{margin:0}.bridge-method dl div{display:flex;justify-content:space-between;gap:12px;padding:4px 0;border-bottom:1px solid var(--line)}.bridge-method dd{margin:0;white-space:nowrap;color:var(--text);font-variant-numeric:tabular-nums}
+.bridge-empty{font-size:12px;color:var(--muted);padding:24px;line-height:1.6;text-align:center}
+@container bridge (min-width:850px){.bridge-short{display:none}.bridge-wide{display:inline}.bridge-labels{font-size:11px}}
+@media(max-width:700px){#dashboard.detail-layout{display:block;overflow:visible}.payment-bridge{height:auto;min-height:390px;margin-top:12px;padding:24px 8px}.bridge-content{max-height:none}}
+@media print{#dashboard.detail-layout{display:block;overflow:visible}.payment-bridge{height:auto;padding:24px 0;break-inside:avoid}.bridge-content{max-height:none}.bridge-method{display:none}.bridge-value,.bridge-labels{font-size:10px}}

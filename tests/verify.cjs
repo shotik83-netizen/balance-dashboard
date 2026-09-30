@@ -6,7 +6,7 @@ class DOMParser{parseFromString(s){return new XmlNode(xmljs.xml2js(s,{compact:fa
 const ids=new Map(),downloads=[];function element(id){if(ids.has(id))return ids.get(id);const classes=new Set(id==='modalBack'||id==='dashboard'?['hidden']:[]),e={id,value:'',textContent:'',innerHTML:'',dataset:{},checked:false,disabled:false,onclick:null,classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}},querySelector:()=>element(id+'-sub'),contains:()=>false,focus:()=>{},setAttribute:()=>{},scrollIntoView:()=>{},dispatchEvent:()=>{},append:()=>{},remove:()=>{},click(){if(this.download)downloads.push(this.download);}};ids.set(id,e);return e;}
 const document={getElementById:element,querySelectorAll:()=>[],addEventListener:()=>{},createElement:()=>element('anchor'),body:Object.assign(element('body'),{append:()=>{}}),activeElement:null};
 const context={console,DOMParser,document,location:{href:'https://example.test/index.html'},Blob,Response,DecompressionStream,TextEncoder,TextDecoder,Uint8Array,DataView,URL,AbortController,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,Event,atob,btoa,fetch:()=>{throw Error('Unexpected network');},window:{print:()=>{}},alert:()=>{}};
-vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','app','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
+vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','bridge','app','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
 function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.ok(Math.abs(a-b)<Math.max(1e-8,Math.abs(b)*1e-12),`${a} ≠ ${b}`);}
 (async()=>{
  const input=process.argv[2]||root+'/data/source.xlsx',raw=fs.readFileSync(input);context.input=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);element('scale').value='1000000';element('decimals').value='0';element('currencyMode').value='rub';element('vatMode').value='gross';
@@ -111,6 +111,37 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  run('admin()');const newIndex=run('adminDraft.contractors.findIndex(c=>c.name==="Новый подрядчик")');context.newIndex=newIndex;assert.equal(run('adminDraft.contractors[newIndex].visible'),false);
  run('adminChange({target:{dataset:{ownerIndex:String(newIndex)},checked:true}});applyAdmin()');assert.ok(element('ownerMenu').innerHTML.includes('data-owner="Новый подрядчик"'));assert.equal(run('newOwners().length'),0);assert.ok(run('selectedColumns(currentReport()).some(c=>c.contractor==="Новый подрядчик")'));
  run("book.sheets[0].rows[0][3]=oldOwner;config=savedConfig;config.contractors.find(c=>c.name==='Подрядчик 1').visible=true;config.showKpis=true;resetSelection();render();setEditing(false)");
+ // Мост сверяется с независимыми значениями источника по каждому подрядчику и каждому листу.
+ run('config=clone(DEFAULT_CONFIG);owner=null;setEditing(false)');let bridgeChecks=0;
+ const bridgeRefs=[[5,[13],[17],32,27],[6,[11],[15],30,25],[5,[10],[14],29,24],[5,[12,13],[14,16],20,19]];
+ for(let i=0;i<4;i++){
+  run(`activeReport=config.reports[${i}].id;owner=null;resetSelection();render()`);
+  const source=run('currentReport()');
+  for(const name of new Set(source.columns.map(c=>c.contractor))){
+   run(`chooseOwner(${JSON.stringify(name)})`);
+   const selectedCols=run('selectedColumns(currentReport())'),data=run('paymentBridgeData(currentReport(),selectedColumns(currentReport()))');assert.equal(data.length,1);
+   const refs=bridgeRefs[i],valueAt=n=>selectedCols.map(c=>independent[source.report.sheet][c.letter+n]?.v);
+   const allRefs=[refs[0],...refs[1],...refs[2],refs[3],refs[4]],complete=allRefs.every(n=>valueAt(n).every(v=>typeof v==='number'));
+   if(!complete){assert.ok(data[0].issues.length);assert.equal(data[0].remaining,null);continue;}
+   const sum=n=>valueAt(n).reduce((a,b)=>a+b,0)*1e6,expected=[sum(refs[0]),-refs[1].reduce((v,n)=>v+sum(n),0),-refs[2].reduce((v,n)=>v+sum(n),0),sum(refs[3]),sum(refs[4])];
+   assert.equal(data[0].steps.length,6);expected.forEach((v,j)=>approx(data[0].steps[j].value,v));approx(data[0].remaining,expected.reduce((a,b)=>a+b,0));
+   assert.ok(!element('paymentBridge').innerHTML.includes('NaN'));assert.ok(!element('paymentBridge').innerHTML.includes('Infinity'));bridgeChecks++;
+  }
+ }
+ run("activeReport='rub-gross';chooseOwner('Подрядчик 1');$('detailLevel').value='2';render()");
+ const bothBridge=run('paymentBridgeData(currentReport(),selectedColumns(currentReport()))[0].remaining');
+ context.bridgeFirst=run('selectedColumns(currentReport())[0]');run("$('contractChips').onchange({target:{dataset:{contract:bridgeFirst.key},checked:false}})");
+ assert.equal(run('selectedColumns(currentReport()).length'),1);assert.notEqual(run('paymentBridgeData(currentReport(),selectedColumns(currentReport()))[0].remaining'),bothBridge);
+ run("$('selectNone').onclick()");assert.ok(element('paymentBridge').innerHTML.includes('Выберите хотя бы один договор'));assert.ok(!element('paymentBridge').innerHTML.includes('<svg'));
+ run("$('selectAll').onclick();chooseOwner(null)");assert.ok(element('paymentBridge').classList.contains('hidden'));assert.equal(element('paymentBridge').innerHTML,'');
+ run("activeReport='fx-gross';chooseOwner('Подрядчик 1');config.reports[1].columns.F={currency:'EUR'};resetSelection();render()");
+ assert.deepEqual(Array.from(run('paymentBridgeData(currentReport(),selectedColumns(currentReport())).map(x=>x.currency)')).sort(),['EUR','USD']);assert.equal((element('paymentBridge').innerHTML.match(/<svg/g)||[]).length,2);
+ run("config=clone(DEFAULT_CONFIG);activeReport='rub-gross';chooseOwner('Подрядчик 1')");
+ context.bridgeCell=run('currentReport().sheet.rows[4][3]');run("currentReport().sheet.rows[4][3]=null;render()");assert.ok(element('paymentBridge').innerHTML.includes('Нет данных: Контракт'));assert.ok(!element('paymentBridge').innerHTML.includes('<svg'));
+ run("currentReport().sheet.rows[4][3]=bridgeCell;setEditing(true);admin();adminChange({target:{dataset:{report:'0',bridge:'paid'},value:'14,15'}})");
+ assert.equal(run('adminDraft.reports[0].bridge.paid.join(",")'),'14,15');assert.ok(element('modalBody').innerHTML.includes('data-bridge="paid"'));run('closeModal();setEditing(false)');
+ const legacyBridge=run('validateConfig((()=>{const c=clone(config);for(const r of c.reports)delete r.bridge;return c})())');assert.equal(legacyBridge.reports[3].bridge.paid.join(','),'12,13');
+ assert.throws(()=>run('validateConfig({...config,reports:config.reports.map(r=>({...r,bridge:{contract:[999]}}))})'));
  const dateJson=run('JSON.stringify(DEFAULT_CONFIG)');fs.writeFileSync(root+'/config/balance-config.json',dateJson+'\n');
  // Ошибка формулы сохраняется; она не превращается в ноль.
  run("currentReport().sheet.rows[currentReport().rows[0].row-1][selectedColumns(currentReport())[0].index]='#NO_CACHED_FORMULA'");assert.equal(run('selectedValue(currentReport(),selectedColumns(currentReport())[0],currentReport().rows[0],"rub")'),'#NO_CACHED_FORMULA');
@@ -119,5 +150,5 @@ function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.o
  assert.throws(()=>run("validateConfig({...config,reports:config.reports.map(r=>({...r,sourceScale:0}))})"));
  assert.throws(()=>run("safeURL('javascript:alert(1)')"));
  assert.ok(!/(?:localStorage|sessionStorage|indexedDB)\s*[.(]|document\.cookie\s*=/.test(scripts));
- console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','rounding','contract XLSX export roundtrip','automatic config download','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels']}));
+ console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','rounding','contract XLSX export roundtrip','automatic config download','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration']}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
