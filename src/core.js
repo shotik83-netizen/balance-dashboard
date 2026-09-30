@@ -1,10 +1,10 @@
 'use strict';
-const APP_VERSION='1.0.0';
+const APP_VERSION='1.1.0';
 const DEFAULT_CONFIG={schemaVersion:1,title:'Баланс взаиморасчётов',sourceUrl:'',configUrl:'',workspaceUrl:'',credentials:'same-origin',defaultScale:1000000,defaultDecimals:0,reports:[
- {id:'rub-gross',label:'Баланс руководству',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],columns:{},rows:{}},
- {id:'fx-gross',label:'Баланс ФЭК с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],columns:{},rows:{}},
- {id:'fx-net',label:'Баланс ФЭК без НДС',sheet:'Баланс ФЭК (валюта) без НДС',currencyMode:'contract',currency:'USD',vat:'net',firstRow:5,lastRow:35,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[5,6,9,32],columns:{},rows:{}},
- {id:'rub-net',label:'НЗП и взаиморасчёты',sheet:'Преза НЗП без НДС',currencyMode:'rub',currency:'RUB',vat:'net',firstRow:5,lastRow:34,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'AL',sourceScale:1000000,dateCell:'AO1',kpis:[5,6,11,17],columns:{},rows:{9:{type:'percent'},29:{type:'section'}}}
+ {id:'rub-gross',label:'Рубли · с НДС',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],columns:{},rows:{}},
+ {id:'fx-gross',label:'Валюта · с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],columns:{},rows:{}},
+ {id:'fx-net',label:'Валюта · без НДС',sheet:'Баланс ФЭК (валюта) без НДС',currencyMode:'contract',currency:'USD',vat:'net',firstRow:5,lastRow:35,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[5,6,9,32],columns:{},rows:{}},
+ {id:'rub-net',label:'Рубли · без НДС (НЗП)',sheet:'Преза НЗП без НДС',currencyMode:'rub',currency:'RUB',vat:'net',firstRow:5,lastRow:34,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'AL',sourceScale:1000000,dateCell:'AO1',kpis:[5,6,11,17],columns:{},rows:{9:{type:'percent'},29:{type:'section'}}}
 ]};
 function colIndex(s){if(!/^[A-Z]{1,3}$/i.test(String(s)))throw Error('Неверная колонка: '+s);return [...s.toUpperCase()].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1;}
 function columnName(i){let s='';for(i++;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;}
@@ -31,7 +31,7 @@ function extractReport(book,r){
   const rate=Number(o.rate!==undefined&&o.rate!==''?o.rate:getCell(sheet,i,r.rateRow));
   columns.push({letter,index:i,contractor:owner||'Без подрядчика',contract:number||'Без номера · '+letter,project:clean(o.project??getCell(sheet,i,r.projectRow)),currency:r.currencyMode==='rub'?'RUB':o.currency||r.currency,rate:Number.isFinite(rate)&&rate>0?rate:null,key:owner+'\u001f'+(number||letter)});
  }
- for(let n=r.firstRow;n<=r.lastRow;n++){const o=r.rows[n]||{},label=clean(o.label??getCell(sheet,r.labelColumn,n));if(!label||o.visible===false)continue;rows.push({row:n,label,type:o.type||(/доля|доля нзп/i.test(label)?'percent':'money'),section:o.type==='section',strong:o.strong??(/стоимость работ|выполнение всего|профинансировано всего|задолженность всего|^обеспечение$|баланс взаиморасчетов/i.test(label))});}
+ for(let n=r.firstRow;n<=r.lastRow;n++){const o=r.rows[n]||{},label=clean(o.label??getCell(sheet,r.labelColumn,n)),style=sheet.cellStyles?.[r.labelColumn+n];if(o.visible===false)continue;rows.push({row:n,label,type:o.type||(/доля|доля нзп/i.test(label)?'percent':'money'),section:!label||o.type==='section',spacer:!label,indent:Math.max(0,Math.min(6,Number(o.indent??style?.indent??0))),strong:o.strong??style?.bold??(/стоимость работ|выполнение всего|профинансировано всего|задолженность всего|^обеспечение$|баланс взаиморасчетов/i.test(label))});}
  const p=address(r.dateCell),raw=sheet.rows[p.row]?.[p.col],date=typeof raw==='number'?new Date(Date.UTC(1899,11,30)+raw*86400000).toLocaleDateString('ru-RU',{timeZone:'UTC'}):clean(raw).split(' ')[0];return{report:r,sheet,columns,rows,date};
 }
 function selectedValue(report,col,row,target){
