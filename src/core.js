@@ -1,0 +1,47 @@
+'use strict';
+const APP_VERSION='1.0.0';
+const DEFAULT_CONFIG={schemaVersion:1,title:'Баланс взаиморасчётов',sourceUrl:'',configUrl:'',workspaceUrl:'',credentials:'same-origin',defaultScale:1000000,defaultDecimals:0,reports:[
+ {id:'rub-gross',label:'Баланс руководству',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],columns:{},rows:{}},
+ {id:'fx-gross',label:'Баланс ФЭК с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],columns:{},rows:{}},
+ {id:'fx-net',label:'Баланс ФЭК без НДС',sheet:'Баланс ФЭК (валюта) без НДС',currencyMode:'contract',currency:'USD',vat:'net',firstRow:5,lastRow:35,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[5,6,9,32],columns:{},rows:{}},
+ {id:'rub-net',label:'НЗП и взаиморасчёты',sheet:'Преза НЗП без НДС',currencyMode:'rub',currency:'RUB',vat:'net',firstRow:5,lastRow:34,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'AL',sourceScale:1000000,dateCell:'AO1',kpis:[5,6,11,17],columns:{},rows:{9:{type:'percent'},29:{type:'section'}}}
+]};
+function colIndex(s){if(!/^[A-Z]{1,3}$/i.test(String(s)))throw Error('Неверная колонка: '+s);return [...s.toUpperCase()].reduce((n,c)=>n*26+c.charCodeAt(0)-64,0)-1;}
+function columnName(i){let s='';for(i++;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;}
+function address(s){const m=String(s).replace(/\$/g,'').match(/^([A-Z]{1,3})([1-9]\d*)$/i);if(!m)throw Error('Неверный адрес: '+s);return{col:colIndex(m[1]),row:Number(m[2])-1};}
+function getCell(sheet,col,row){return sheet.rows[row-1]?.[typeof col==='number'?col:colIndex(col)]??'';}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function clean(s){return String(s??'').trim();}
+function validateConfig(c){
+ if(!c||c.schemaVersion!==1||!Array.isArray(c.reports)||!c.reports.length)throw Error('Это не конфигурация баланса взаиморасчётов.');
+ const ids=new Set();for(const r of c.reports){if(!r.id||ids.has(r.id))throw Error('Идентификаторы отчётов должны быть уникальны.');ids.add(r.id);if(!/^[A-Z]{3}$/.test(r.currency))throw Error('Код валюты отчёта должен состоять из трёх латинских букв.');if(!['rub','contract'].includes(r.currencyMode)||!['gross','net'].includes(r.vat))throw Error('Неверный режим отчёта.');for(const k of ['labelColumn','firstColumn','lastColumn'])colIndex(r[k]);address(r.dateCell);for(const k of ['firstRow','lastRow','contractorRow','contractRow','projectRow','rateRow'])if(!Number.isInteger(r[k])||r[k]<1||r[k]>100000)throw Error('Неверная строка '+k);if(r.lastRow<r.firstRow||r.lastRow-r.firstRow>1000||colIndex(r.lastColumn)<colIndex(r.firstColumn)||colIndex(r.lastColumn)-colIndex(r.firstColumn)>1000)throw Error('Неверный диапазон отчёта.');if(!(r.sourceScale>0)||!Number.isFinite(r.sourceScale))throw Error('Неверный масштаб источника.');if(!Array.isArray(r.kpis)||r.kpis.length!==4||r.kpis.some(n=>!Number.isInteger(n)||n<r.firstRow||n>r.lastRow))throw Error('Укажите четыре строки показателей из диапазона отчёта.');r.columns??={};r.rows??={};for(const x of Object.values(r.columns)){if(x.rate!==undefined&&x.rate!==''&&(!(Number(x.rate)>0)||!Number.isFinite(Number(x.rate))))throw Error('Курс должен быть больше нуля.');if(x.currency&&!/^[A-Z]{3}$/.test(x.currency))throw Error('Код валюты должен состоять из трёх латинских букв.');}}
+ for(const k of ['sourceUrl','configUrl','workspaceUrl'])if(c[k])safeURL(c[k]);if(!['same-origin','include','omit'].includes(c.credentials))throw Error('Неверный режим доступа к файлу.');if(![1,1000,1000000].includes(Number(c.defaultScale))||![0,1,2].includes(Number(c.defaultDecimals)))throw Error('Неверные единицы или округление.');return c;
+}
+function safeURL(s){const u=new URL(s,location.href);if(!['https:','http:'].includes(u.protocol))throw Error('Используйте адрес HTTP или HTTPS.');if(u.username||u.password)throw Error('Не указывайте пароль в адресе.');return u;}
+function extractReport(book,r){
+ const sheet=book.sheets.find(s=>s.name===r.sheet);if(!sheet)throw Error('В книге нет листа «'+r.sheet+'».');const columns=[],rows=[];
+ for(let i=colIndex(r.firstColumn);i<=colIndex(r.lastColumn);i++){
+  const letter=columnName(i),o=r.columns[letter]||{},owner=clean(o.contractor??getCell(sheet,i,r.contractorRow)),number=clean(o.contract??getCell(sheet,i,r.contractRow));
+  // Колонки без номера договора, повторяющие подрядчика с договорами, являются итогами Excel.
+  const originalOwner=clean(getCell(sheet,i,r.contractorRow));
+  const children=sheet.rows[r.contractorRow-1]?.some((v,j)=>j!==i&&clean(v)===originalOwner&&clean(getCell(sheet,j,r.contractRow)));
+  const hasValues=Array.from({length:r.lastRow-r.firstRow+1},(_,j)=>getCell(sheet,i,r.firstRow+j)).some(v=>typeof v==='number');
+  const autoExclude=!owner||/^всего|^млн |^дата |^прочие подрядчики/i.test(owner)||(!number&&(children||!hasValues));
+  if(o.include===false||(o.include!==true&&autoExclude))continue;
+  const rate=Number(o.rate!==undefined&&o.rate!==''?o.rate:getCell(sheet,i,r.rateRow));
+  columns.push({letter,index:i,contractor:owner||'Без подрядчика',contract:number||'Без номера · '+letter,project:clean(o.project??getCell(sheet,i,r.projectRow)),currency:r.currencyMode==='rub'?'RUB':o.currency||r.currency,rate:Number.isFinite(rate)&&rate>0?rate:null,key:owner+'\u001f'+(number||letter)});
+ }
+ for(let n=r.firstRow;n<=r.lastRow;n++){const o=r.rows[n]||{},label=clean(o.label??getCell(sheet,r.labelColumn,n));if(!label||o.visible===false)continue;rows.push({row:n,label,type:o.type||(/доля|доля нзп/i.test(label)?'percent':'money'),section:o.type==='section',strong:o.strong??(/стоимость работ|выполнение всего|профинансировано всего|задолженность всего|^обеспечение$|баланс взаиморасчетов/i.test(label))});}
+ const p=address(r.dateCell),raw=sheet.rows[p.row]?.[p.col],date=typeof raw==='number'?new Date(Date.UTC(1899,11,30)+raw*86400000).toLocaleDateString('ru-RU',{timeZone:'UTC'}):clean(raw).split(' ')[0];return{report:r,sheet,columns,rows,date};
+}
+function selectedValue(report,col,row,target){
+ const raw=getCell(report.sheet,col.index,row.row);if(raw===''||raw===null)return null;if(typeof raw!=='number'||!Number.isFinite(raw))return raw;
+ if(row.type==='percent'||row.section)return raw;
+ let v=raw*report.report.sourceScale;
+ if(report.report.currencyMode==='contract'&&target==='rub'){if(!col.rate)return '#Нет курса';v*=col.rate;}
+ return v;
+}
+function groupCurrency(report,col,target){return report.report.currencyMode==='contract'&&target==='rub'?'RUB':col.currency;}
+function totals(report,columns,row,target){const g={};for(const c of columns){const currency=groupCurrency(report,c,target),v=selectedValue(report,c,row,target);g[currency]??={value:0,missing:0,errors:[]};if(v===null)g[currency].missing++;else if(typeof v==='number')g[currency].value+=v;else g[currency].errors.push(String(v));}return g;}
+function displayedNumber(v,row,scale,decimals){if(v===null||v===undefined||v==='')return 'Нет данных';if(typeof v!=='number')return String(v);const n=row.type==='percent'?v*100:v/scale,dp=row.type==='percent'?1:decimals;if(Math.abs(n)<.5*10**(-dp))return '—';return new Intl.NumberFormat('ru-RU',{minimumFractionDigits:dp,maximumFractionDigits:dp}).format(n)+(row.type==='percent'?' %':'');}
+function csvCell(v){let s=String(v??'');if(/^[=+@-]/.test(s)&&typeof v!=='number')s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
