@@ -89,32 +89,32 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
 
 .bridge-column>.payment-bridge{background:#fff;border:1px solid var(--line);border-radius:8px}
 
-/* Print the balance first, with the bridge and advance table below on the same page. */
+/* Compact landscape print: balance, payment bridge, advance metrics from left to right. */
 @media print{
  @page{size:A4 landscape;margin:8mm}
  body{height:auto!important;display:block!important;font-size:10px;background:#fff}
  .top,.header-kpis{display:none!important}
  .workspace,.main{height:auto!important;overflow:visible!important;padding:0!important}
- #dashboard.detail-layout{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
+ #dashboard.detail-layout{display:grid!important;grid-template-columns:minmax(0,var(--print-balance-width,448px)) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
  #dashboard.detail-layout .balance-column,#dashboard.detail-layout .bridge-column{width:auto!important;max-width:none!important;height:auto!important;min-width:0}
  #dashboard.detail-layout .balance-column,#dashboard.detail-layout .bridge-column{display:contents!important}
- #dashboard.detail-layout .balance-panel{grid-column:1/-1;grid-row:1}
- #dashboard.detail-layout .payment-bridge{grid-column:1;grid-row:2}
- #dashboard.detail-layout .advance-block{grid-column:2;grid-row:2;align-self:start}
+ #dashboard.detail-layout .balance-panel{grid-column:1;grid-row:1}
+ #dashboard.detail-layout .payment-bridge{grid-column:2;grid-row:1;align-self:start}
+ #dashboard.detail-layout .advance-block{grid-column:3;grid-row:1;align-self:start}
  #dashboard.detail-layout .balance-panel{width:100%!important;height:auto!important;min-height:0;overflow:visible;border:1px solid var(--line);border-radius:6px;flex:none}
  .balance-card-heading{min-height:0;padding:7px 8px;break-after:avoid}.balance-card-heading h2{font-size:12px}
  #reportArea,#reportArea>.card,.tablewrap{height:auto!important;max-height:none!important;overflow:visible!important}
- #dashboard.detail-layout .balance-table{width:100%!important;min-width:0!important;height:auto!important;font-size:9px;line-height:1.12}
- #dashboard.detail-layout .balance-table th,#dashboard.detail-layout .balance-table td{width:auto;min-width:0!important;max-width:none!important;padding:1.5px 4px;line-height:1.12;position:static}
+ #dashboard.detail-layout .balance-table{width:100%!important;min-width:0!important;height:auto!important;table-layout:fixed;font-size:9.5px;line-height:1.2}
+ #dashboard.detail-layout .balance-table th,#dashboard.detail-layout .balance-table td{width:auto;min-width:0!important;max-width:none!important;padding:2.5px 4px;line-height:1.2;position:static}
  #dashboard.detail-layout .balance-table th{font-size:9px}#dashboard.detail-layout .balance-table th small{font-size:8px;max-width:none;white-space:normal}
- #dashboard.detail-layout .balance-table th:first-child,#dashboard.detail-layout .balance-table td:first-child{width:44%;min-width:0!important;max-width:none!important}
- #dashboard.detail-layout .balance-table td:not(:first-child){font-size:9px}
- #dashboard.detail-layout .rowlabel span{line-height:1.12}
+ #dashboard.detail-layout .balance-table th:first-child,#dashboard.detail-layout .balance-table td:first-child{width:220px;min-width:0!important;max-width:none!important}
+ #dashboard.detail-layout .balance-table td:not(:first-child){font-size:9.5px;text-align:center}
+ #dashboard.detail-layout .rowlabel span{line-height:1.2}
  .balance-table tr{break-inside:avoid}.group-toggle{font-size:inherit}.group-arrow{font-size:9px}
  .bridge-column>.payment-bridge{height:auto!important;min-height:0!important;padding:8px;overflow:visible!important;flex:none;break-inside:avoid}
  .bridge-content{max-height:none!important;gap:12px}.bridge-figure figcaption{margin-bottom:8px}.bridge-figure h3{font-size:11px}.bridge-figure figcaption p{font-size:9px;margin-top:3px}
- .bridge-plot{height:120px}.bridge-value{font-size:10px;line-height:12px;margin-top:-3px}.bridge-labels{font-size:8px;line-height:14px}.bridge-method{display:none!important}
- .advance-block{width:100%;margin:0!important;break-inside:avoid}.advance-heading{min-height:0;padding:6px 8px}.advance-heading h3{font-size:10px}.advance-heading span{font-size:8px}
+ .bridge-plot{height:220px}.bridge-value{font-size:10px;line-height:12px;margin-top:-3px}.bridge-labels{font-size:8px;line-height:14px}.bridge-method{display:none!important}
+ .advance-block{width:100%;margin:0!important;break-inside:avoid}.advance-heading{min-height:0;padding:7px 8px;flex-wrap:wrap;gap:4px}.advance-heading h3{font-size:10px}.advance-heading span{font-size:8px}
  .advance-tablewrap{overflow:visible}.advance-table{width:100%;min-width:0!important;font-size:9px}.advance-table th:first-child{width:46%}.advance-table thead th{font-size:8px;padding:5px 3px}
- .advance-table tbody th,.advance-table td{font-size:9px;line-height:1.15;padding:4px 3px}.advance-table td{text-align:center}
+ .advance-table tbody th,.advance-table td{font-size:9.5px;line-height:1.25;padding:7px 4px}.advance-table td{text-align:center}
 }
