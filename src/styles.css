@@ -89,18 +89,20 @@ body{grid-template-rows:96px minmax(0,1fr) auto}.top{height:96px;display:grid;gr
 
 .bridge-column>.payment-bridge{background:#fff;border:1px solid var(--line);border-radius:8px}
 
-/* Compact landscape print: balance, payment bridge, advance metrics from left to right. */
+/* Landscape page by default; advance metrics stay directly below the bridge. */
+@page{size:A4 landscape;margin:8mm}
 @media print{
- @page{size:A4 landscape;margin:8mm}
  body{height:auto!important;display:block!important;font-size:10px;background:#fff}
  .top,.header-kpis{display:none!important}
  .workspace,.main{height:auto!important;overflow:visible!important;padding:0!important}
- #dashboard.detail-layout{display:grid!important;grid-template-columns:minmax(0,var(--print-balance-width,448px)) minmax(0,1fr) minmax(0,1fr);gap:12px;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
+ #dashboard.detail-layout{display:grid!important;grid-template-columns:minmax(0,var(--print-balance-width,448px)) minmax(0,1fr);gap:12px;padding:0!important;height:auto!important;overflow:visible!important;align-items:start;break-inside:avoid;page-break-inside:avoid}
  #dashboard.detail-layout .balance-column,#dashboard.detail-layout .bridge-column{width:auto!important;max-width:none!important;height:auto!important;min-width:0}
- #dashboard.detail-layout .balance-column,#dashboard.detail-layout .bridge-column{display:contents!important}
- #dashboard.detail-layout .balance-panel{grid-column:1;grid-row:1}
- #dashboard.detail-layout .payment-bridge{grid-column:2;grid-row:1;align-self:start}
- #dashboard.detail-layout .advance-block{grid-column:3;grid-row:1;align-self:start}
+ #dashboard.detail-layout .balance-column{display:block!important;grid-column:1;grid-row:1}
+ #dashboard.detail-layout .bridge-column{display:flex!important;flex-direction:column;gap:12px;grid-column:2;grid-row:1}
+ #dashboard.detail-layout .payment-bridge,#dashboard.detail-layout .advance-block{flex:none;align-self:stretch;width:100%;min-width:0;max-width:none;box-sizing:border-box}
+ #dashboard.detail-layout .payment-bridge{display:block!important;container-type:normal;container-name:none}
+ #dashboard.detail-layout .bridge-content,#dashboard.detail-layout .bridge-figure,#dashboard.detail-layout .bridge-plot{width:100%;min-width:0;max-width:none}
+ #dashboard.detail-layout .bridge-plot svg{display:block;width:100%;height:100%;max-width:none}
  #dashboard.detail-layout .balance-panel{width:100%!important;height:auto!important;min-height:0;overflow:visible;border:1px solid var(--line);border-radius:6px;flex:none}
  .balance-card-heading{min-height:0;padding:7px 8px;break-after:avoid}.balance-card-heading h2{font-size:12px}
  #reportArea,#reportArea>.card,.tablewrap{height:auto!important;max-height:none!important;overflow:visible!important}
