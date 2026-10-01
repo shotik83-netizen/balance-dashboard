@@ -14,6 +14,10 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  assert.ok(d.getElementById('kpis').classList.contains('hidden'));assert.equal(d.querySelectorAll('[data-owner]').length>0,true);
  d.querySelector('[data-owner="Подрядчик 1"]').click();assert.ok(!d.getElementById('kpis').classList.contains('hidden'));
  assert.equal(d.querySelectorAll('#kpis .kpi').length,4);const kpi=d.querySelector('#kpis .kpi'),figure=kpi.querySelector('strong');assert.equal(w.getComputedStyle(kpi).textAlign,'center');assert.ok(parseFloat(w.getComputedStyle(figure).fontSize)>=22);assert.equal(w.getComputedStyle(figure).color,'rgb(77, 83, 88)');assert.equal(w.getComputedStyle(kpi).backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(w.getComputedStyle(d.getElementById('kpis')).backgroundColor,'rgba(0, 0, 0, 0)');
+ let exportedBlob=null,exportedName='';w.URL.createObjectURL=blob=>{exportedBlob=blob;return 'blob:download-test';};
+ d.addEventListener('click',event=>{if(event.target.tagName==='A'&&event.target.download){exportedName=event.target.download;event.preventDefault();}},true);
+ d.getElementById('exportXlsx').click();assert.ok(exportedName.endsWith('.xlsx'));assert.equal(exportedBlob.type,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+ w.exportedBuffer=await exportedBlob.arrayBuffer();const downloadedBook=await run('readWorkbook(exportedBuffer,"download.xlsx")');assert.equal(downloadedBook.sheets.length,5);assert.equal(downloadedBook.sheets[4].name,'Мост и авансы');
  const search=d.getElementById('metricSearch');search.value='Банковская';search.dispatchEvent(new w.Event('input'));
  assert.ok(d.body.classList.contains('metric-searching'));assert.equal(w.getComputedStyle(d.querySelector('.balance-table')).height,'auto');
  assert.equal(w.getComputedStyle(d.getElementById('balanceColumn')).height,'auto');
@@ -29,7 +33,7 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  assert.equal(d.querySelector('.sibur-wordmark').textContent,'СИБУР');assert.equal(d.querySelector('.brand').firstElementChild.className,'sibur-wordmark');
  assert.equal(w.getComputedStyle(d.getElementById('exportXlsx')).height,w.getComputedStyle(d.getElementById('ownerSearch')).height);
  assert.equal(w.getComputedStyle(d.getElementById('printReport')).height,w.getComputedStyle(d.getElementById('metricSearch')).height);
- assert.equal(d.getElementById('currentDate').textContent,run('currentDateParts().text'));assert.equal(d.getElementById('currentDate').getAttribute('datetime'),run('currentDateParts().iso'));
+ assert.equal(d.getElementById('currentDate').textContent,'Дата обновления недоступна');run('sourceInfo.updatedAt="2026-09-30T21:15:00Z";render()');assert.equal(d.getElementById('currentDate').textContent,'Обновлено: 01.10.2026');assert.equal(d.getElementById('currentDate').getAttribute('datetime'),'2026-09-30T21:15:00.000Z');assert.ok(d.getElementById('currentDate').title.includes('Москва'));
  d.getElementById('metricAiMode').click();assert.equal(d.getElementById('metricAiMode').getAttribute('aria-pressed'),'true');
  d.getElementById('metricSearch').value='гарантийные удержания';d.getElementById('metricSearch').dispatchEvent(new w.Event('input'));
  w.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({rows:[32]})}}]}));await run('runMetricAiSearch()');

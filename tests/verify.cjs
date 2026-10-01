@@ -198,7 +198,7 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  context.location.href='https://tenant.sharepoint.com/sites/finance/app/index.html';
  context.fetch=async (url,options)=>{calls.push({url:String(url),credentials:options.credentials});
   if(String(url).endsWith('/app/balance-config.json'))return new Response(JSON.stringify(context.remoteConfig));
-  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw);
+  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw,{headers:{"Last-Modified":"Thu, 01 Oct 2026 17:30:00 GMT"}});
   throw Error('Unexpected URL '+url);
  };
  await run('boot()');assert.equal(run('config.title'),'Баланс SharePoint');assert.equal(run('sourceInfo.kind'),'url');
@@ -209,7 +209,7 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  calls.length=0;context.remoteConfig.sourceUrl='../../data/source.xlsx';
  context.fetch=async url=>{calls.push(String(url));if(String(url).endsWith('/app/balance-config.json'))return new Response('',{status:404});
   if(String(url).endsWith('/app/config/balance-config.json'))return new Response(JSON.stringify(context.remoteConfig));
-  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw);throw Error('Unexpected URL '+url);};
+  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw,{headers:{"Last-Modified":"Thu, 01 Oct 2026 17:30:00 GMT"}});throw Error('Unexpected URL '+url);};
  await run('boot()');assert.equal(run('sourceInfo.kind'),'url');assert.equal(calls.length,3);
  // An explicit config address has precedence; failures must not show embedded balances.
  assert.deepEqual(Array.from(run("configCandidates(DEFAULT_CONFIG,'https://example.test/index.html?config=https%3A%2F%2Fexample.test%2Fcustom.json').map(x=>x.url)")),['https://example.test/custom.json']);
@@ -293,6 +293,17 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  for(const label of ['НЗП*0,8','НЗП × 0.8 (коэф.конс)','НЗП * 0,8 (коэф.конс)']){context.label=label;assert.equal(run('invalidPositive({label,type:"money"},100)'),true);}
  assert.equal(run('currentDateParts(new Date("2026-10-01T21:05:00Z")).text'),'02.10.2026');
  assert.equal(run('currentDateParts(new Date("2026-10-01T20:59:00Z")).iso'),'2026-10-01');
+ // Server modification time, Moscow midnight, REST fallback and denied metadata.
+ assert.equal(run('sourceUpdatedISO("not a date")'),null);assert.equal(run('sourceUpdatedISO(null)'),null);
+ let metadataCalls=[];context.fetch=async(url,options)=>{metadataCalls.push({url:String(url),options});return new Response(JSON.stringify({d:{TimeLastModified:'2026-09-30T21:15:00Z'}}));};
+ context.metadataResponse=new Response('',{headers:{'Last-Modified':'Wed, 30 Sep 2026 21:05:00 GMT'}});
+ assert.equal(await run('sourceUpdateMetadata(metadataResponse,"https://tenant.sharepoint.com/sites/finance/Docs/source.xlsx")'),'2026-09-30T21:05:00.000Z');assert.equal(metadataCalls.length,0);
+ context.metadataResponse=new Response('');assert.equal(await run('sourceUpdateMetadata(metadataResponse,"https://tenant.sharepoint.com/sites/finance/Docs/source.xlsx")'),'2026-09-30T21:15:00.000Z');assert.equal(metadataCalls.length,1);assert.ok(metadataCalls[0].url.includes('/sites/finance/_api/web/GetFileByServerRelativePath'));assert.ok(metadataCalls[0].url.includes('TimeLastModified'));assert.equal(metadataCalls[0].options.credentials,run('config.credentials'));
+ context.fetch=async()=>new Response('',{status:403});assert.equal(await run('sourceUpdateMetadata(metadataResponse,"https://tenant.sharepoint.com/sites/finance/Docs/source.xlsx")'),null);
+ assert.equal(run('sharepointMetadataURL("https://example.test/source.xlsx")'),null);
+ assert.ok(run('sharepointMetadataURL("https://tenant.sharepoint.com/sites/finance/Docs/100%25%23O%27Brien.xlsx")').includes("100%25%23O%27%27Brien.xlsx"));
+ run('sourceInfo.updatedAt="2026-09-30T21:15:00Z";updateCurrentDate()');assert.equal(element('currentDate').textContent,'Обновлено: 01.10.2026');
+ run('sourceInfo.updatedAt=null;updateCurrentDate()');assert.equal(element('currentDate').textContent,'Дата обновления недоступна');
  run('$("ownerSearch").value="";aiMessage="";renderAiSearch()');assert.equal(element('aiSearchStatus').textContent,'');assert.ok(element('aiSearchStatus').classList.contains('hidden'));
  run('activeReport="rub-gross";metricAiMode=true;$("metricSearch").value="гарантии";metricAiRows=null;metricAiMessage="";metricAiError=false');
  context.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({rows:[32]})},finish_reason:'stop'}]}));

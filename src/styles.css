@@ -186,3 +186,5 @@ body{grid-template-rows:118px minmax(0,1fr) auto}.top{height:118px}
 .bridge-label{white-space:normal;padding:0 3px;line-height:1.25;overflow-wrap:normal}.bridge-labels{align-items:start;min-height:38px}
 
 .balance-table td.bridge-source-cell{background:#e3f3f4!important;box-shadow:inset 0 0 0 1px #008c9538;transition:background-color .12s}.balance-table td.sign-error.bridge-source-cell{background:#e3f3f4!important;box-shadow:inset 0 0 0 1px #008c9560;color:var(--bad)}.bridge-bar[data-bridge-step]{cursor:crosshair;outline:none}.bridge-bar[data-bridge-step]:focus-visible{stroke:var(--teal);stroke-width:3px}
+
+.balance-card-heading time{font-size:11px;max-width:45%;white-space:normal;text-align:right}

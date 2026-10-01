@@ -110,5 +110,32 @@ function currentDateParts(now=new Date()){
  const p=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Moscow',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now),v=Object.fromEntries(p.map(x=>[x.type,x.value]));
  return {text:v.day+'.'+v.month+'.'+v.year,iso:v.year+'-'+v.month+'-'+v.day};
 }
-function updateCurrentDate(){const d=currentDateParts();$('currentDate').textContent=d.text;$('currentDate').setAttribute('datetime',d.iso);}
+function sourceUpdatedISO(value){
+ if(value===null||value===undefined||value==='')return null;
+ if(typeof value==='string'&&!/^\d{4}-\d{2}-\d{2}T|^[A-Z][a-z]{2}, .* GMT$/.test(value))return null;
+ const date=new Date(value);return Number.isFinite(date.getTime())?date.toISOString():null;
+}
+function updateCurrentDate(){
+ const field=$('currentDate'),updated=sourceUpdatedISO(sourceInfo?.updatedAt);
+ field.setAttribute('aria-label','Дата обновления исходного документа');
+ if(!updated){field.textContent='Дата обновления недоступна';field.setAttribute('datetime','');field.setAttribute('title','Дата изменения исходного документа не получена. Дата открытия приложения не используется.');return;}
+ const date=new Date(updated),d=currentDateParts(date);field.textContent='Обновлено: '+d.text;field.setAttribute('datetime',updated);field.setAttribute('title',(sourceInfo.kind==='url'?'Последнее обновление файла на сервере: ':'Изменение файла с устройства: ')+date.toLocaleString('ru-RU',{timeZone:'Europe/Moscow'})+' (Москва)');
+}
+function sharepointMetadataURL(source){
+ try{const u=new URL(source),parameter=u.searchParams.get('SourceUrl')||u.searchParams.get('sourceUrl'),path=parameter?new URL(parameter,u).pathname:u.pathname;
+  let decoded=decodeURIComponent(path).replace(/^\/:x:\/r\//i,'/');
+  if(!/(?:^|\.)sharepoint\.com$/i.test(u.hostname)&&!/sharepoint/i.test(u.hostname)&&!/^\/(sites|teams|personal)\//i.test(decoded))return null;
+  const api=decoded.match(/^(.*?)\/_api\/(web\/GetFileByServerRelative(?:Path|Url)\(.*\))\/\$value$/i);
+  if(api)return new URL(u.origin+api[1]+'/_api/'+api[2]+'?$select=TimeLastModified').href;
+  if(!/\.xlsx$/i.test(decoded))return null;
+  const web=decoded.match(/^\/(?:sites|teams|personal)\/[^/]+/i)?.[0]||'',literal=encodeURIComponent(decoded.replace(/'/g,"''")).replace(/'/g,'%27');
+  return u.origin+web+"/_api/web/GetFileByServerRelativePath(decodedUrl='"+literal+"')?$select=TimeLastModified";
+ }catch{return null;}
+}
+async function sourceUpdateMetadata(response,url){
+ const header=sourceUpdatedISO(response.headers?.get('Last-Modified'));if(header)return header;
+ const endpoint=sharepointMetadataURL(url);if(!endpoint)return null;
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),5000);
+ try{const res=await fetch(endpoint,{cache:'no-store',credentials:config.credentials,headers:{Accept:'application/json;odata=nometadata'},signal:controller.signal});if(!res.ok)return null;const body=await res.json();return sourceUpdatedISO(body.TimeLastModified??body.d?.TimeLastModified);}catch{return null;}finally{clearTimeout(timer);}
+}
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateCurrentDate();});window.addEventListener?.('focus',updateCurrentDate);
