@@ -13,7 +13,7 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  assert.equal(d.getElementById('printReport').closest('.header-search')!==null,true);
  assert.ok(d.getElementById('kpis').classList.contains('hidden'));assert.equal(d.querySelectorAll('[data-owner]').length>0,true);
  d.querySelector('[data-owner="Подрядчик 1"]').click();assert.ok(!d.getElementById('kpis').classList.contains('hidden'));
- assert.equal(d.querySelectorAll('#kpis .kpi').length,4);const kpi=d.querySelector('#kpis .kpi'),figure=kpi.querySelector('strong');assert.equal(w.getComputedStyle(kpi).textAlign,'center');assert.ok(parseFloat(w.getComputedStyle(figure).fontSize)>=22);assert.notEqual(w.getComputedStyle(kpi).borderRadius,'0');
+ assert.equal(d.querySelectorAll('#kpis .kpi').length,4);const kpi=d.querySelector('#kpis .kpi'),figure=kpi.querySelector('strong');assert.equal(w.getComputedStyle(kpi).textAlign,'center');assert.ok(parseFloat(w.getComputedStyle(figure).fontSize)>=22);assert.equal(w.getComputedStyle(figure).color,'rgb(77, 83, 88)');assert.equal(w.getComputedStyle(kpi).backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(w.getComputedStyle(d.getElementById('kpis')).backgroundColor,'rgba(0, 0, 0, 0)');
  const search=d.getElementById('metricSearch');search.value='Банковская';search.dispatchEvent(new w.Event('input'));
  assert.ok(d.body.classList.contains('metric-searching'));assert.equal(w.getComputedStyle(d.querySelector('.balance-table')).height,'auto');
  assert.equal(w.getComputedStyle(d.getElementById('balanceColumn')).height,'auto');
@@ -40,5 +40,5 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  const model=d.querySelector('[data-ai="model"]');model.value='test-model';assert.equal(run('getDraft().aiSearch.model'),'test-model');
  const reopenedHtml=run('configuredHtml(getDraft())');assert.ok(reopenedHtml.includes('const BOOT_CONFIG = {'));
  assert.equal(new JSDOM(reopenedHtml).window.document.querySelectorAll('#exportXlsx').length,1);
- dom.window.close();console.log(JSON.stringify({status:'PASS',checks:['native DOM startup','single exports in header','bridge source-cell hover and keyboard focus','KPI scope','centred corporate KPI boxes','both searches default to AI','natural table and panel height while filtering','AI icon toggle','text filter','AI local result selection','masked config editor','exported autonomous HTML']}));
+ dom.window.close();console.log(JSON.stringify({status:'PASS',checks:['native DOM startup','single exports in header','bridge source-cell hover and keyboard focus','KPI scope','centred dark-grey KPI text without coloured backgrounds','both searches default to AI','natural table and panel height while filtering','AI icon toggle','text filter','AI local result selection','masked config editor','exported autonomous HTML']}));
 })().catch(e=>{console.error(e.stack);process.exit(1)});
