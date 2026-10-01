@@ -3,9 +3,9 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert/strict'),path=req
 const xmljs=require('xml-js'),root=path.resolve(__dirname,'..');
 class XmlNode{constructor(n){this.n=n;}getAttribute(k){return this.n.attributes?.[k]??null;}getAttributeNS(ns,k){return this.getAttribute('r:'+k);}get textContent(){function t(n){return (n.text||n.cdata||'')+(n.elements||[]).map(t).join('');}return t(this.n);}getElementsByTagNameNS(ns,name){const out=[];function walk(n){for(const c of n.elements||[]){if(c.type==='element'&&c.name.split(':').at(-1)===name)out.push(new XmlNode(c));walk(c);}}walk(this.n);return out;}getElementsByTagName(name){return this.getElementsByTagNameNS('*',name);}}
 class DOMParser{parseFromString(s){return new XmlNode(xmljs.xml2js(s,{compact:false}));}}
-const ids=new Map(),downloads=[];function element(id){if(ids.has(id))return ids.get(id);const classes=new Set(id==='modalBack'||id==='dashboard'?['hidden']:[]),e={id,value:'',textContent:'',innerHTML:'',dataset:{},checked:false,disabled:false,onclick:null,classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}},querySelector:()=>element(id+'-sub'),contains:()=>false,focus:()=>{},setAttribute:()=>{},scrollIntoView:()=>{},dispatchEvent:()=>{},append:()=>{},remove:()=>{},click(){if(this.download)downloads.push(this.download);}};ids.set(id,e);return e;}
+const ids=new Map(),downloads=[];function element(id){if(ids.has(id))return ids.get(id);const classes=new Set(id==='modalBack'||id==='dashboard'?['hidden']:[]),e={id,value:'',textContent:'',innerHTML:'',dataset:{},checked:false,disabled:false,onclick:null,classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}},querySelector:()=>element(id+'-sub'),querySelectorAll:()=>[],contains:()=>false,focus:()=>{},setAttribute:()=>{},scrollIntoView:()=>{},dispatchEvent:()=>{},append:()=>{},remove:()=>{},click(){if(this.download)downloads.push(this.download);}};ids.set(id,e);return e;}
 const document={getElementById:element,querySelectorAll:()=>[],addEventListener:()=>{},createElement:()=>element('anchor'),body:Object.assign(element('body'),{append:()=>{}}),activeElement:null};
-const context={console,DOMParser,document,location:{href:'https://example.test/index.html'},Blob,Response,DecompressionStream,TextEncoder,TextDecoder,Uint8Array,DataView,URL,AbortController,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,Event,atob,btoa,fetch:()=>{throw Error('Unexpected network');},window:{print:()=>{}},alert:()=>{}};
+const context={console,DOMParser,document,location:{href:'https://example.test/index.html'},Blob,Response,DecompressionStream,TextEncoder,TextDecoder,Uint8Array,DataView,URL,AbortController,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,Event,atob,btoa,fetch:async()=>new Response('',{status:404}),window:{print:()=>{}},alert:()=>{}};
 vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','bridge','advance','app','print','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
 function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.ok(Math.abs(a-b)<Math.max(1e-8,Math.abs(b)*1e-12),`${a} ≠ ${b}`);}
 // The reference screenshot and both portrait/landscape screens must fit without stretching.
@@ -19,6 +19,7 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  assert.ok(Math.abs(width*fit.scale-paper.width)<1e-8||Math.abs(height*fit.scale-paper.height)<1e-8);
 }
 (async()=>{
+ await run('bootReady');
  const input=process.argv[2]||root+'/data/source.xlsx',raw=fs.readFileSync(input);context.input=raw.buffer.slice(raw.byteOffset,raw.byteOffset+raw.byteLength);element('scale').value='1000000';element('decimals').value='0';element('currencyMode').value='rub';element('vatMode').value='gross';
  element('showContractorTotal').checked=true;
  await run("loadBook(input,'Исходная книга.xlsx','file')");assert.equal(run('book.sheets.length'),4);assert.equal(run('allOwners().length'),25);assert.equal(run('currentReport().columns.length'),32);assert.equal(run('rConfig().vat'),'gross');assert.equal(run('currentReport().date'),'15.09.2026');
@@ -184,6 +185,45 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  run('currentReport().sheet.rows[7][3]=savedAdvanceActs;render()');
  assert.equal(run('displayedNumber(0.436,{type:"percent"},1e6,0)'),'44 %');assert.equal(run('displayedNumber(0.105,{type:"percent"},1e6,0)'),'11 %');assert.equal(run('displayedNumber(-0.105,{type:"percent"},1e6,0)'),'-11 %');
  assert.ok(!element('advanceBlock').innerHTML.includes('<small>'));assert.ok(!element('advanceBlock').innerHTML.includes('43,6 %'));
+ // SharePoint: discover adjacent config and resolve its source relative to the JSON file.
+ const savedFetch=context.fetch,savedLocation=context.location.href;
+ const calls=[];context.remoteConfig=run('clone(DEFAULT_CONFIG)');
+ context.remoteConfig.title='Баланс SharePoint';context.remoteConfig.sourceUrl='../data/source.xlsx';context.remoteConfig.workspaceUrl='../';
+ context.location.href='https://tenant.sharepoint.com/sites/finance/app/index.html';
+ context.fetch=async (url,options)=>{calls.push({url:String(url),credentials:options.credentials});
+  if(String(url).endsWith('/app/balance-config.json'))return new Response(JSON.stringify(context.remoteConfig));
+  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw);
+  throw Error('Unexpected URL '+url);
+ };
+ await run('boot()');assert.equal(run('config.title'),'Баланс SharePoint');assert.equal(run('sourceInfo.kind'),'url');
+ assert.equal(run('config.sourceUrl'),'https://tenant.sharepoint.com/sites/finance/data/source.xlsx');
+ assert.equal(run('config.configUrl'),'https://tenant.sharepoint.com/sites/finance/app/balance-config.json');
+ assert.equal(calls.length,2);assert.equal(calls[0].credentials,'same-origin');
+ // Older archives keep the config in config/: a missing adjacent file tries that path.
+ calls.length=0;context.remoteConfig.sourceUrl='../../data/source.xlsx';
+ context.fetch=async url=>{calls.push(String(url));if(String(url).endsWith('/app/balance-config.json'))return new Response('',{status:404});
+  if(String(url).endsWith('/app/config/balance-config.json'))return new Response(JSON.stringify(context.remoteConfig));
+  if(String(url).endsWith('/data/source.xlsx?download=1'))return new Response(raw);throw Error('Unexpected URL '+url);};
+ await run('boot()');assert.equal(run('sourceInfo.kind'),'url');assert.equal(calls.length,3);
+ // An explicit config address has precedence; failures must not show embedded balances.
+ assert.deepEqual(Array.from(run("configCandidates(DEFAULT_CONFIG,'https://example.test/index.html?config=https%3A%2F%2Fexample.test%2Fcustom.json').map(x=>x.url)")),['https://example.test/custom.json']);
+ assert.equal(run("configCandidates(DEFAULT_CONFIG,'file:///tmp/index.html').length"),0);
+ assert.equal(run('configCandidates(DEFAULT_CONFIG,location.href,DEFAULT_CONFIG).length'),0);
+ context.fetch=async()=>new Response('<html>Sign in</html>');
+ await assert.rejects(run("readConfigUrl('https://example.test/config.json','include')"),/страницу просмотра или входа/);
+ await run('boot()');assert.equal(run('book'),null);assert.equal(element('connectionStatus').className,'status-chip error');assert.ok(!element('welcome').classList.contains('hidden'));
+ context.fetch=async()=>new Response('Not authorized',{status:403});
+ await assert.rejects(run("readConfigUrl('https://example.test/config.json','include')"),/HTTP 403/);
+ context.fetch=async()=>new Response('<html>Sign in</html>');
+ await assert.rejects(run("loadUrl('https://tenant.sharepoint.com/data/source.xlsx')"),/страницу SharePoint вместо файла Excel/);assert.equal(run('book'),null);
+ // Exported HTML retains links in a fresh runtime without browser storage.
+ context.persistedConfig=run('clone(DEFAULT_CONFIG)');context.persistedConfig.sourceUrl='https://tenant.sharepoint.com/data/source.xlsx';context.persistedConfig.workspaceUrl='https://tenant.sharepoint.com/sites/finance/';context.persistedConfig.title='Баланс </script> & \"';
+ context.fixtureScript='const BOOT_CONFIG = null;\n';
+ const embeddedScript=run('withBootConfig(fixtureScript,persistedConfig)');assert.ok(!embeddedScript.includes('</script>'));
+ const reopened={};vm.createContext(reopened);vm.runInContext(embeddedScript+'globalThis.saved=BOOT_CONFIG;',reopened);assert.deepEqual(JSON.parse(JSON.stringify(reopened.saved)),JSON.parse(JSON.stringify(context.persistedConfig)));
+ context.fetch=savedFetch;context.location.href=savedLocation;await run('boot()');
+ run('setEditing(true);admin()');const beforeClose=downloads.length;run("adminDraft.workspaceUrl='https://example.test/workspace';finishSettings()");assert.equal(run('config.workspaceUrl'),'https://example.test/workspace');assert.equal(downloads.length,beforeClose+1);
+ run('admin()');run("$('modalBack').onclick({target:$('modalBack')})");assert.ok(!element('modalBack').classList.contains('hidden'));run('closeModal();setEditing(false)');
  const dateJson=run('JSON.stringify(DEFAULT_CONFIG)');fs.writeFileSync(root+'/config/balance-config.json',dateJson+'\n');
  // Ошибка формулы сохраняется; она не превращается в ноль.
  run("currentReport().sheet.rows[currentReport().rows[0].row-1][selectedColumns(currentReport())[0].index]='#NO_CACHED_FORMULA'");assert.equal(run('selectedValue(currentReport(),selectedColumns(currentReport())[0],currentReport().rows[0],"rub")'),'#NO_CACHED_FORMULA');
@@ -192,5 +232,5 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  assert.throws(()=>run("validateConfig({...config,reports:config.reports.map(r=>({...r,sourceScale:0}))})"));
  assert.throws(()=>run("safeURL('javascript:alert(1)')"));
  assert.ok(!/(?:localStorage|sessionStorage|indexedDB)\s*[.(]|document\.cookie\s*=/.test(scripts));
- console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,advanceChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','whole-number amounts and percentages','contract XLSX export roundtrip','automatic config download','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration','five advance metrics per contract reconciled to source','advance contract filters and zero or missing base','admin advance placement and row mappings','advance legacy config migration']}));
+ console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,advanceChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','whole-number amounts and percentages','contract XLSX export roundtrip','automatic config download','adjacent and nested config discovery','SharePoint config and source startup','relative config source links','explicit config priority','config HTML and HTTP error handling','exported HTML retains links on reopen','draft autosave on close','backdrop preserves admin edits','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration','five advance metrics per contract reconciled to source','advance contract filters and zero or missing base','admin advance placement and row mappings','advance legacy config migration']}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
