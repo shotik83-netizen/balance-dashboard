@@ -7,14 +7,18 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  w.URL.createObjectURL=()=> 'blob:download-test';w.URL.revokeObjectURL=()=>{};
  const ctx=dom.getInternalVMContext(),run=s=>vm.runInContext(s,ctx);run(w.document.querySelector('script:not([type])').textContent);
  await run('bootReady');const d=w.document;
+ assert.equal(d.getElementById('ownerAiMode').getAttribute('aria-pressed'),'true');assert.equal(d.getElementById('metricAiMode').getAttribute('aria-pressed'),'true');
+ d.getElementById('metricAiMode').click();assert.equal(d.getElementById('metricAiMode').getAttribute('aria-pressed'),'false');
  assert.equal(d.getElementById('exportCsv'),null);assert.equal(d.querySelectorAll('#exportXlsx').length,1);assert.equal(d.getElementById('exportXlsx').closest('.header-search')!==null,true);
  assert.equal(d.getElementById('printReport').closest('.header-search')!==null,true);
  assert.ok(d.getElementById('kpis').classList.contains('hidden'));assert.equal(d.querySelectorAll('[data-owner]').length>0,true);
  d.querySelector('[data-owner="Подрядчик 1"]').click();assert.ok(!d.getElementById('kpis').classList.contains('hidden'));
+ assert.equal(d.querySelectorAll('#kpis .kpi').length,4);const kpi=d.querySelector('#kpis .kpi'),figure=kpi.querySelector('strong');assert.equal(w.getComputedStyle(kpi).textAlign,'center');assert.ok(parseFloat(w.getComputedStyle(figure).fontSize)>=22);assert.notEqual(w.getComputedStyle(kpi).borderRadius,'0');
  const search=d.getElementById('metricSearch');search.value='Банковская';search.dispatchEvent(new w.Event('input'));
  assert.ok(d.body.classList.contains('metric-searching'));assert.equal(w.getComputedStyle(d.querySelector('.balance-table')).height,'auto');
  assert.equal(w.getComputedStyle(d.getElementById('balanceColumn')).height,'auto');
  search.value='';search.dispatchEvent(new w.Event('input'));assert.ok(!d.body.classList.contains('metric-searching'));
+ const chartBar=d.querySelector('.bridge-bar[data-bridge-step="0"]');assert.ok(chartBar);chartBar.dispatchEvent(new w.Event('pointerover',{bubbles:true}));assert.ok(d.querySelector('[data-source-row="5"] .bridge-source-cell'));chartBar.dispatchEvent(new w.Event('pointerout',{bubbles:true}));assert.equal(d.querySelectorAll('.bridge-source-cell').length,0);const dynamics=d.querySelector('.bridge-bar[data-bridge-step="6"]');assert.ok(dynamics);dynamics.dispatchEvent(new w.Event('focusin',{bubbles:true}));assert.ok(d.querySelector('[data-source-row="5"] .bridge-source-cell'));assert.ok(d.querySelector('[data-source-row="6"] .bridge-source-cell'));dynamics.dispatchEvent(new w.Event('focusout',{bubbles:true}));assert.equal(d.querySelectorAll('.bridge-source-cell').length,0);
  d.getElementById('allContractors').click();assert.ok(d.getElementById('kpis').classList.contains('hidden'));
  d.getElementById('ownerAiMode').click();assert.equal(d.getElementById('ownerAiMode').getAttribute('aria-pressed'),'false');
  d.getElementById('ownerSearch').value='Подрядчик 10';d.getElementById('ownerSearch').dispatchEvent(new w.Event('input'));assert.equal(d.querySelectorAll('[data-owner]').length,1);
@@ -36,5 +40,5 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  const model=d.querySelector('[data-ai="model"]');model.value='test-model';assert.equal(run('getDraft().aiSearch.model'),'test-model');
  const reopenedHtml=run('configuredHtml(getDraft())');assert.ok(reopenedHtml.includes('const BOOT_CONFIG = {'));
  assert.equal(new JSDOM(reopenedHtml).window.document.querySelectorAll('#exportXlsx').length,1);
- dom.window.close();console.log(JSON.stringify({status:'PASS',checks:['native DOM startup','single exports in header','KPI scope','natural table and panel height while filtering','AI icon toggle','text filter','AI local result selection','masked config editor','exported autonomous HTML']}));
-})().catch(e=>{console.error(e.message);process.exit(1)});
+ dom.window.close();console.log(JSON.stringify({status:'PASS',checks:['native DOM startup','single exports in header','bridge source-cell hover and keyboard focus','KPI scope','centred corporate KPI boxes','both searches default to AI','natural table and panel height while filtering','AI icon toggle','text filter','AI local result selection','masked config editor','exported autonomous HTML']}));
+})().catch(e=>{console.error(e.stack);process.exit(1)});

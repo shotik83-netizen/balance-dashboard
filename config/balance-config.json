@@ -51,6 +51,9 @@
         ],
         "payable": [
           27
+        ],
+        "forecastContract": [
+          6
         ]
       },
       "advanceMetrics": {
@@ -113,7 +116,8 @@
         ],
         "payable": [
           25
-        ]
+        ],
+        "forecastContract": []
       },
       "advanceMetrics": {
         "acts": [
@@ -168,7 +172,8 @@
         ],
         "payable": [
           24
-        ]
+        ],
+        "forecastContract": []
       },
       "advanceMetrics": {
         "acts": [
@@ -225,7 +230,8 @@
         ],
         "payable": [
           19
-        ]
+        ],
+        "forecastContract": []
       },
       "advanceMetrics": {
         "acts": [

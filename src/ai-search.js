@@ -11,7 +11,8 @@ function validateAiConnection(c){
  return {endpoint:u.href,model:c.model,apiKey:key.trim(),mode};
 }
 function signCheckedRow(row){return row.type==='money'&&!row.section&&/^(?:банковская гарантия|ГУ(?:\s|$)|гарантийн|кредиторская задолженность|НЗП\s*[*×xх]\s*0[,.]8(?:\s|$|\()|задолженность по НЗП|по выполненным работам)/i.test(row.label);}
-function invalidPositive(row,value){return signCheckedRow(row)&&typeof value==='number'&&value>0;}
+function errorMagnitude(value){const scale=Number($('scale').value)||1;return typeof value==='number'&&Number.isFinite(value)&&Math.abs(value)/scale>=1;}
+function invalidPositive(row,value){return signCheckedRow(row)&&value>0&&errorMagnitude(value);}
 function signErrorContracts(r,cols,row){return cols.filter(c=>invalidPositive(row,selectedValue(r,c,row,targetCurrency()))).map(c=>c.contract);}
 function signErrorCount(r,cols){return r.rows.reduce((n,row)=>n+signErrorContracts(r,cols,row).length,0);}
 function normalizeSearch(v){return String(v??'').normalize('NFKC').toLowerCase().replace(/ё/g,'е').replace(/\s+/g,' ').trim();}
@@ -73,7 +74,7 @@ async function runAiSearch(){
  finally{clearTimeout(timer);if(generation===aiGeneration){aiBusy=false;aiController=null;renderMenu();}}
 }
 
-let metricAiMode=false,metricAiRows=null,metricAiBusy=false,metricAiMessage='',metricAiError=false,metricAiController=null,metricAiGeneration=0;
+let metricAiMode=true,metricAiRows=null,metricAiBusy=false,metricAiMessage='',metricAiError=false,metricAiController=null,metricAiGeneration=0;
 function cancelMetricAiSearch(){metricAiGeneration++;metricAiController?.abort();metricAiController=null;metricAiBusy=false;}
 function renderMetricAiSearch(){
  $('metricAiMode').classList.toggle('active',metricAiMode);$('metricAiMode').setAttribute('aria-pressed',String(metricAiMode));$('metricAiMode').setAttribute('aria-label',metricAiMode?'ИИ-поиск показателей. Переключить на текстовый поиск':'Текстовый поиск показателей. Переключить на ИИ');
