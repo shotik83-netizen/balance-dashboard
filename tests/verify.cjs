@@ -6,7 +6,7 @@ class DOMParser{parseFromString(s){return new XmlNode(xmljs.xml2js(s,{compact:fa
 const ids=new Map(),downloads=[];function element(id){if(ids.has(id))return ids.get(id);const classes=new Set(id==='modalBack'||id==='dashboard'?['hidden']:[]),e={id,value:'',textContent:'',innerHTML:'',dataset:{},checked:false,disabled:false,onclick:null,classList:{contains:x=>classes.has(x),add:x=>classes.add(x),remove:x=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}},querySelector:()=>element(id+'-sub'),querySelectorAll:()=>[],contains:()=>false,focus:()=>{},setAttribute:()=>{},scrollIntoView:()=>{},dispatchEvent:()=>{},append:()=>{},remove:()=>{},click(){if(this.download)downloads.push(this.download);}};ids.set(id,e);return e;}
 const document={getElementById:element,querySelectorAll:()=>[],addEventListener:()=>{},createElement:()=>element('anchor'),body:Object.assign(element('body'),{append:()=>{}}),activeElement:null};
 const context={console,DOMParser,document,location:{href:'https://example.test/index.html'},Blob,Response,DecompressionStream,TextEncoder,TextDecoder,Uint8Array,DataView,URL,AbortController,setTimeout:(fn,ms)=>{const t=setTimeout(fn,ms);t.unref();return t;},clearTimeout,Event,atob,btoa,fetch:async()=>new Response('',{status:404}),window:{print:()=>{}},alert:()=>{}};
-vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','bridge','advance','app','print','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
+vm.createContext(context);const scripts=['core','xlsx-reader','zip-writer','ai-search','bridge','advance','app','print','admin'].map(n=>fs.readFileSync(root+'/src/'+n+'.js','utf8')).join('\n');vm.runInContext('const BOOT_CONFIG=null;\n'+scripts,context);
 function run(s){return vm.runInContext(s,context);}function approx(a,b){assert.ok(Math.abs(a-b)<Math.max(1e-8,Math.abs(b)*1e-12),`${a} ≠ ${b}`);}
 // The reference screenshot and both portrait/landscape screens must fit without stretching.
 for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
@@ -224,7 +224,7 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  context.fetch=savedFetch;context.location.href=savedLocation;await run('boot()');
  run('setEditing(true);admin()');const beforeClose=downloads.length;run("adminDraft.workspaceUrl='https://example.test/workspace';finishSettings()");assert.equal(run('config.workspaceUrl'),'https://example.test/workspace');assert.equal(downloads.length,beforeClose+1);
  run('admin()');run("$('modalBack').onclick({target:$('modalBack')})");assert.ok(!element('modalBack').classList.contains('hidden'));run('closeModal();setEditing(false)');
- const dateJson=run('JSON.stringify(DEFAULT_CONFIG)');fs.writeFileSync(root+'/config/balance-config.json',dateJson+'\n');
+
  // Ошибка формулы сохраняется; она не превращается в ноль.
  run("currentReport().sheet.rows[currentReport().rows[0].row-1][selectedColumns(currentReport())[0].index]='#NO_CACHED_FORMULA'");assert.equal(run('selectedValue(currentReport(),selectedColumns(currentReport())[0],currentReport().rows[0],"rub")'),'#NO_CACHED_FORMULA');
  // Применение изменённых настроек автоматически скачивает конфиг.
@@ -232,5 +232,50 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  assert.throws(()=>run("validateConfig({...config,reports:config.reports.map(r=>({...r,sourceScale:0}))})"));
  assert.throws(()=>run("safeURL('javascript:alert(1)')"));
  assert.ok(!/(?:localStorage|sessionStorage|indexedDB)\s*[.(]|document\.cookie\s*=/.test(scripts));
- console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,advanceChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','whole-number amounts and percentages','contract XLSX export roundtrip','automatic config download','adjacent and nested config discovery','SharePoint config and source startup','relative config source links','explicit config priority','config HTML and HTTP error handling','exported HTML retains links on reopen','draft autosave on close','backdrop preserves admin edits','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration','five advance metrics per contract reconciled to source','advance contract filters and zero or missing base','admin advance placement and row mappings','advance legacy config migration']}));
+ // Regression cases for 1.8: signed amounts must remain visible as errors even after netting.
+ run('config=validateConfig(clone(DEFAULT_CONFIG))');await run("loadBook(input,'Исходная книга.xlsx','file')");
+ assert.equal(run('DEFAULT_CONFIG.contractors'),null);
+ assert.equal(element('kpis').innerHTML,'');assert.ok(element('kpis').classList.contains('hidden'));
+ run("chooseOwner('Подрядчик 1');$('detailLevel').value='2';render()");assert.ok(!element('kpis').classList.contains('hidden'));
+ for(const id of ['rub-gross','fx-gross','fx-net']){
+  context.id=id;run('openReport(id)');const group=run('hierarchyRows(currentReport()).find(x=>/^ГУ$/i.test(x.label))');
+  context.guRow=group.row;assert.equal(group.children,true);assert.equal(run('hierarchyRows(currentReport()).filter(x=>/^ГУ с /i.test(x.label)).every(x=>x.parent===guRow)'),true);
+  // Remove source formatting: semantic grouping must still work.
+  run('for(const row of currentReport().rows.filter(x=>/^ГУ/i.test(x.label)))config.reports.find(x=>x.id===activeReport).rows[row.row]={indent:0}');
+  assert.equal(run('hierarchyRows(currentReport()).filter(x=>/^ГУ с /i.test(x.label)).every(x=>x.parent===guRow)'),true);
+  assert.equal(run('viewRows(currentReport()).some(x=>/^ГУ с /i.test(x.label))'),false);run('toggleRow(guRow)');assert.equal(run('viewRows(currentReport()).filter(x=>/^ГУ с /i.test(x.label)).length'),2);
+ }
+ run("openReport('rub-gross');chooseOwner('Подрядчик 1');$('detailLevel').value='3';render()");
+ for(const label of ['Банковская гарантия','ГУ','Кредиторская задолженность','НЗП']){
+  context.label=label;const row=run('currentReport().rows.find(x=>x.label===label)');context.testRow=row;
+  context.oldSigned=run('selectedColumns(currentReport()).map(c=>currentReport().sheet.rows[testRow.row-1][c.index])');
+  run('selectedColumns(currentReport()).forEach((c,i)=>currentReport().sheet.rows[testRow.row-1][c.index]=i===0?1:-2);render()');
+  assert.equal(run('invalidPositive(testRow,1)'),true);assert.equal(run('invalidPositive(testRow,0)'),false);assert.equal(run('invalidPositive(testRow,-1)'),false);
+  assert.equal(run('signErrorContracts(currentReport(),selectedColumns(currentReport()),testRow).length'),1);
+  assert.ok(run('totalText(currentReport(),selectedColumns(currentReport()),testRow,false)').startsWith('-'));
+  assert.ok(run('balanceCell(currentReport(),selectedColumns(currentReport()),testRow)').includes('sign-error'));
+  assert.ok(element('reportArea').innerHTML.includes('data-sign-error="true"'));
+  run('chooseOwner(null)');assert.ok(element('reportArea').innerHTML.includes('data-sign-error="true"'));assert.equal(element('kpis').innerHTML,'');
+  run("chooseOwner('Подрядчик 1');selectedColumns(currentReport()).forEach((c,i)=>currentReport().sheet.rows[testRow.row-1][c.index]=oldSigned[i]);render()");
+ }
+ const negative=run('paymentBridgeData(currentReport(),selectedColumns(currentReport()))[0]');negative.issues=[];negative.remaining=-1;negative.steps.at(-1).value=-1;negative.steps.at(-1).to=-1;context.negative=negative;
+ assert.ok(run('bridgeFigure(negative,0)').includes('bridge-negative'));assert.ok(run('bridgeFigure(negative,0)').includes('bridge-negative-value'));
+ element('metricSearch').value='Банковская';run('render()');assert.ok(document.body.classList.contains('metric-searching'));assert.ok(run('viewRows(currentReport()).every(x=>x.children||x.label.includes("Банковская"))'));
+ element('metricSearch').value='';run('render()');assert.ok(!document.body.classList.contains('metric-searching'));
+ // GLM is checked against the workbook, never trusted to return contractor records.
+ const p=run('validateAiPlan({groups:[[{field:"name",op:"eq",value:"Подрядчик 1"}]]})');context.testPlan=p;
+ assert.equal(run('aiRecords().filter(r=>aiMatches(r,testPlan)).length'),1);
+ assert.throws(()=>run('validateAiPlan({groups:[[{field:"invented",op:"eq",value:"Подрядчик 1"}]]})'));
+ assert.throws(()=>run('validateAiPlan({groups:[[{field:"contractTotal",op:"gt",value:"100"}]]})'));
+ assert.throws(()=>run('validateAiConnection({...config.aiSearch,endpoint:"http://example.test"})'));
+ assert.throws(()=>run('validateAiConnection({...config.aiSearch,apiKey:"key\\nInjected: value"})'));
+ assert.equal(run('validateConfig((()=>{const c=clone(config);delete c.aiSearch;return c})()).aiSearch.model'),'');
+ run('config.aiSearch={endpoint:"https://ai.example.test/v1/chat/completions",model:"test-model",apiKey:"test-only-key",mode:"ai"};aiMode=true;$("ownerSearch").value="Найди подрядчика 1"');
+ const aiCalls=[];context.fetch=async(url,options)=>{aiCalls.push({url,options});return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({groups:[[{field:'name',op:'eq',value:'Подрядчик 1'}]]})},finish_reason:'stop'}]}));};
+ await run('runAiSearch()');assert.equal(aiCalls.length,1);assert.equal(aiCalls[0].options.headers.Authorization,'Bearer test-only-key');assert.equal(JSON.parse(aiCalls[0].options.body).model,'test-model');assert.ok(!JSON.stringify(JSON.parse(aiCalls[0].options.body)).includes('test-only-key'));assert.equal(run('filteredSearchOwners(visibleOwners()).length'),1);assert.equal(run('aiBusy'),false);
+ context.fetch=async()=>new Response('',{status:401});await run('runAiSearch()');assert.equal(run('aiError'),true);assert.ok(element('aiSearchStatus').textContent.includes('отклонил ключ'));assert.equal(run('aiPlan'),null);
+ let completeAi;context.fetch=async()=>new Promise(resolve=>{completeAi=resolve});const pendingAi=run('runAiSearch()');run('cancelAiSearch();$("ownerSearch").value="Новый запрос"');completeAi(new Response(JSON.stringify({choices:[{message:{content:'{"groups":[[{"field":"name","op":"eq","value":"Подрядчик 1"}]]}'}}]})));await pendingAi;assert.equal(run('aiPlan'),null);assert.equal(run('aiBusy'),false);
+ context.fetch=savedFetch;
+
+ console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,advanceChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['GU hierarchy without formatting','per-contract sign errors after netting','negative bridge colour','compact metric search state','overall KPI suppression','AI plan validation and local selection','Bearer request without key in prompt','API error and stale-response handling','automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','whole-number amounts and percentages','contract XLSX export roundtrip','automatic config download','adjacent and nested config discovery','SharePoint config and source startup','relative config source links','explicit config priority','config HTML and HTTP error handling','exported HTML retains links on reopen','draft autosave on close','backdrop preserves admin edits','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration','five advance metrics per contract reconciled to source','advance contract filters and zero or missing base','admin advance placement and row mappings','advance legacy config migration']}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
