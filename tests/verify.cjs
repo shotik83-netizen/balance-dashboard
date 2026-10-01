@@ -246,7 +246,7 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
   assert.equal(run('viewRows(currentReport()).some(x=>/^ГУ с /i.test(x.label))'),false);run('toggleRow(guRow)');assert.equal(run('viewRows(currentReport()).filter(x=>/^ГУ с /i.test(x.label)).length'),2);
  }
  run("openReport('rub-gross');chooseOwner('Подрядчик 1');$('detailLevel').value='3';render()");
- for(const label of ['Банковская гарантия','ГУ','Кредиторская задолженность','НЗП']){
+ for(const label of ['Банковская гарантия','ГУ','Кредиторская задолженность','НЗП * 0,8 (коэф.конс)']){
   context.label=label;const row=run('currentReport().rows.find(x=>x.label===label)');context.testRow=row;
   context.oldSigned=run('selectedColumns(currentReport()).map(c=>currentReport().sheet.rows[testRow.row-1][c.index])');
   run('selectedColumns(currentReport()).forEach((c,i)=>currentReport().sheet.rows[testRow.row-1][c.index]=i===0?1:-2);render()');
@@ -277,5 +277,22 @@ for(const [width,height] of [[1536,813],[1110,768],[700,1100]]){
  let completeAi;context.fetch=async()=>new Promise(resolve=>{completeAi=resolve});const pendingAi=run('runAiSearch()');run('cancelAiSearch();$("ownerSearch").value="Новый запрос"');completeAi(new Response(JSON.stringify({choices:[{message:{content:'{"groups":[[{"field":"name","op":"eq","value":"Подрядчик 1"}]]}'}}]})));await pendingAi;assert.equal(run('aiPlan'),null);assert.equal(run('aiBusy'),false);
  context.fetch=savedFetch;
 
+
+ // 1.8.1: ordinary WIP is not a sign error; conservative security WIP remains checked.
+ assert.equal(run('invalidPositive({label:"НЗП",type:"money"},100)'),false);
+ for(const label of ['НЗП*0,8','НЗП × 0.8 (коэф.конс)','НЗП * 0,8 (коэф.конс)']){context.label=label;assert.equal(run('invalidPositive({label,type:"money"},100)'),true);}
+ assert.equal(run('currentDateParts(new Date("2026-10-01T21:05:00Z")).text'),'02.10.2026');
+ assert.equal(run('currentDateParts(new Date("2026-10-01T20:59:00Z")).iso'),'2026-10-01');
+ run('$("ownerSearch").value="";aiMessage="";renderAiSearch()');assert.equal(element('aiSearchStatus').textContent,'');assert.ok(element('aiSearchStatus').classList.contains('hidden'));
+ run('activeReport="rub-gross";metricAiMode=true;$("metricSearch").value="гарантии";metricAiRows=null;metricAiMessage="";metricAiError=false');
+ context.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({rows:[32]})},finish_reason:'stop'}]}));
+ await run('runMetricAiSearch()');assert.equal(run('metricAiBusy'),false);assert.equal(run('metricAiError'),false);
+ assert.equal(run('viewRows(currentReport()).filter(r=>/^ГУ/i.test(r.label)).length'),3);assert.ok(run('viewRows(currentReport()).some(r=>r.row===29)'));
+ assert.throws(()=>run('parseMetricAiResponse({choices:[{message:{content:JSON.stringify({rows:[999]})}}]})'));
+ assert.throws(()=>run('parseMetricAiResponse({choices:[{message:{content:JSON.stringify({rows:[9]})}}]})'));
+ assert.throws(()=>run('parseMetricAiResponse({choices:[{message:{content:JSON.stringify({rows:[{id:32}]})}}]})'));
+ run('metricAiRows=[]');assert.equal(run('viewRows(currentReport()).length'),0);
+ let finishMetric;context.fetch=async()=>new Promise(resolve=>{finishMetric=resolve});const pendingMetric=run('runMetricAiSearch()');run('cancelMetricAiSearch();metricAiRows=null;$("metricSearch").value="другой запрос"');finishMetric(new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({rows:[32]})}}]})));await pendingMetric;assert.equal(run('metricAiRows'),null);assert.equal(run('metricAiBusy'),false);
+ context.fetch=savedFetch;run('metricAiMode=false;$("metricSearch").value=""');
  console.log(JSON.stringify({status:'PASS',sourceCellsCompared:count,aggregateChecks,bridgeChecks,advanceChecks,reports:4,contractsPerReport:expectedCounts,contractorsUnion:25,checks:['GU hierarchy without formatting','per-contract sign errors after netting','negative bridge colour','compact metric search state','overall KPI suppression','AI plan validation and local selection','Bearer request without key in prompt','API error and stale-response handling','automatic source startup','full contractor balances','all aggregate rows reconciled','source bold and indentation','summary XLSX roundtrip','weighted percentages','missing report availability','default source-data visibility','admin availability toggle and config migration','empty contractor hidden while zero and errors remain visible','contract filters','no double counting','VAT source switch','currency isolation','FX conversion','missing data','whole-number amounts and percentages','contract XLSX export roundtrip','automatic config download','adjacent and nested config discovery','SharePoint config and source startup','relative config source links','explicit config priority','config HTML and HTTP error handling','exported HTML retains links on reopen','draft autosave on close','backdrop preserves admin edits','config validation','no browser persistence','single report selector','editing visibility and source modal','connection status states','gross VAT default','VAT-preserving contractor fallback','independent group expansion','hidden rows retained for calculations','KPI visibility config','contractor visibility in aggregates and exports','new contractor opt-in','unified balance heading','three reporting levels','default second level','totals invariant across levels','contractor payment bridges reconcile to source','bridge contract selection and empty data','separate currency bridges','bridge mapping config and legacy migration','five advance metrics per contract reconciled to source','advance contract filters and zero or missing base','admin advance placement and row mappings','advance legacy config migration']}));
 })().catch(e=>{console.error(e);process.exitCode=1;});

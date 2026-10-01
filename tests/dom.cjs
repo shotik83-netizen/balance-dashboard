@@ -21,6 +21,16 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  d.getElementById('ownerAiMode').click();assert.equal(d.getElementById('ownerAiMode').textContent,'ИИ');
  run('config.aiSearch={endpoint:"https://ai.example.test/v1/chat/completions",model:"test-model",apiKey:"test-only-key",mode:"ai"}');let calls=0;w.fetch=async()=>{calls++;return new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({groups:[[{field:'name',op:'eq',value:'Подрядчик 1'}]]})}}]}));};
  await run('runAiSearch()');assert.equal(calls,1);assert.equal(d.querySelectorAll('[data-owner]').length,1);assert.equal(d.querySelector('[data-owner]').dataset.owner,'Подрядчик 1');
+
+ assert.equal(d.querySelector('.sibur-wordmark').textContent,'СИБУР');assert.equal(d.querySelector('.brand').firstElementChild.className,'sibur-wordmark');
+ assert.equal(w.getComputedStyle(d.getElementById('exportXlsx')).height,w.getComputedStyle(d.getElementById('ownerSearch')).height);
+ assert.equal(w.getComputedStyle(d.getElementById('printReport')).height,w.getComputedStyle(d.getElementById('metricSearch')).height);
+ assert.equal(d.getElementById('currentDate').textContent,run('currentDateParts().text'));assert.equal(d.getElementById('currentDate').getAttribute('datetime'),run('currentDateParts().iso'));
+ d.getElementById('metricAiMode').click();assert.equal(d.getElementById('metricAiMode').getAttribute('aria-pressed'),'true');
+ d.getElementById('metricSearch').value='гарантийные удержания';d.getElementById('metricSearch').dispatchEvent(new w.Event('input'));
+ w.fetch=async()=>new Response(JSON.stringify({choices:[{message:{content:JSON.stringify({rows:[32]})}}]}));await run('runMetricAiSearch()');
+ assert.equal(d.querySelectorAll('[data-source-row="33"]').length,1);assert.equal(d.querySelectorAll('[data-source-row="34"]').length,1);
+ d.getElementById('metricSearch').value='';d.getElementById('metricSearch').dispatchEvent(new w.Event('input'));assert.ok(d.getElementById('metricAiStatus').classList.contains('hidden'));
  d.getElementById('editToggle').click();d.getElementById('adminSide').click();assert.equal(d.querySelector('[data-ai="apiKey"]').type,'password');assert.equal(d.querySelector('[data-ai="model"]').value,'test-model');
  // Native selector changes are included when settings are applied, even without blur.
  const model=d.querySelector('[data-ai="model"]');model.value='test-model';assert.equal(run('getDraft().aiSearch.model'),'test-model');
