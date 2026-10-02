@@ -188,3 +188,15 @@ body{grid-template-rows:118px minmax(0,1fr) auto}.top{height:118px}
 .balance-table td.bridge-source-cell{background:#e3f3f4!important;box-shadow:inset 0 0 0 1px #008c9538;transition:background-color .12s}.balance-table td.sign-error.bridge-source-cell{background:#e3f3f4!important;box-shadow:inset 0 0 0 1px #008c9560;color:var(--bad)}.bridge-bar[data-bridge-step]{cursor:crosshair;outline:none}.bridge-bar[data-bridge-step]:focus-visible{stroke:var(--teal);stroke-width:3px}
 
 .balance-card-heading time{font-size:11px;max-width:45%;white-space:normal;text-align:right}
+
+/* Hide the KPI column from the grid as well as from the overall report. */
+@media(min-width:1801px){
+ .kpis-hidden .top{grid-template-columns:minmax(350px,1fr) 710px}
+ .kpis-hidden .header-search{grid-column:2;grid-row:1}
+}
+/* The last export action and the content share the same right edge. */
+@media(min-width:701px){
+ .top,.kpis-hidden .top{padding-right:12px}
+ #dashboard{padding-right:12px}
+}
+@media(max-width:700px){.top,.kpis-hidden .top{padding-right:10px}}
