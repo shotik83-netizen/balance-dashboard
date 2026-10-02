@@ -73,9 +73,58 @@ function bridgeDrawingXml(bridges){
  }
  return `<?xml version="1.0" encoding="UTF-8"?><xdr:wsDr xmlns:xdr="${XLSX_NS}drawingml/2006/spreadsheetDrawing" xmlns:a="${XLSX_NS}drawingml/2006/main">${objects.join('')}</xdr:wsDr>`;
 }
+// A contractor export is a compact copy of the active source sheet. Keep its
+// cell styles and cached source values; formulas referencing removed columns
+// or sheets must not pull other contractors back into this report.
+function contractorExportFiles(){
+ const r=currentReport(),chosen=selectedColumns(r),source=book.sourceFiles,decode=name=>new TextDecoder().decode(source[name]);
+ if(!chosen.length)throw Error('Выберите хотя бы один договор.');
+ const workbookDoc=xml(decode('xl/workbook.xml')),sheet=tags(workbookDoc,'sheet').find(s=>s.getAttribute('name')===r.report.sheet),sheetId=sheet.getAttribute('r:id'),relations=decode('xl/_rels/workbook.xml.rels');
+ const relation=tags(xml(relations),'Relationship').find(s=>s.getAttribute('Id')===sheetId),resolve=(base,target)=>new URL(target,'https://xlsx.local/'+base).pathname.slice(1),sheetPath=resolve('xl/workbook.xml',relation.getAttribute('Target'));
+ const labelEnd=colIndex(r.report.labelColumn),sourceOwner=clean(getCell(r.sheet,chosen[0].index,r.report.contractorRow)),allChosen=chosen.length===r.columns.filter(c=>c.contractor===owner).length;
+ const keep=Array.from({length:labelEnd+1},(_,i)=>i);
+ if(allChosen&&chosen.length>1)for(let i=labelEnd+1;i<=colIndex(r.report.lastColumn);i++)if(clean(getCell(r.sheet,i,r.report.contractorRow))===sourceOwner&&!clean(getCell(r.sheet,i,r.report.contractRow))&&!chosen.some(c=>c.index===i))keep.push(i);
+ keep.push(...chosen.map(c=>c.index));keep.sort((a,b)=>a-b);
+ const lastData=colIndex(r.report.lastColumn),date=address(r.report.dateCell);for(let i=lastData+1;i<=Math.max(lastData,date.col);i++)keep.push(i);
+ const map=new Map(keep.map((old,next)=>[old,next])),strings=source['xl/sharedStrings.xml']?(decode('xl/sharedStrings.xml').match(/<si\b[^>]*>[\s\S]*?<\/si>/g)||[]):[];
+ const remapRange=range=>{const [a,b=a]=range.split(':'),start=address(a),end=address(b);if(start.row>=r.report.lastRow)return null;for(let i=start.col;i<=end.col;i++)if(!map.has(i))return null;return columnName(map.get(start.col))+(start.row+1)+(a===b?'':':'+columnName(map.get(end.col))+Math.min(end.row+1,r.report.lastRow));};
+ let text=decode(sheetPath);const sourceRoot=text.match(/<worksheet\b[^>]*>/)[0],shared=new Map();for(const cell of tags(xml(text),'c')){const f=tags(cell,'f')[0];if(f?.getAttribute('t')==='shared'&&f.textContent)shared.set(f.getAttribute('si'),{formula:f.textContent,at:address(cell.getAttribute('r'))});}
+ const transformFormula=(formula,change)=>formula.split(/("(?:[^"]|"")*")/).map((part,i)=>i%2?part:change(part)).join('');
+ function localFormula(cell,p){
+  if(!/<f\b/.test(cell))return null;const node=tags(xml(sourceRoot+cell+'</worksheet>'),'f')[0];if(!node)return null;let formula=node.textContent;
+  if(!formula&&node.getAttribute('t')==='shared'){const master=shared.get(node.getAttribute('si'));if(!master)return null;formula=transformFormula(master.formula,part=>part.replace(/(\$?)([A-Z]{1,3})(\$?)([1-9]\d*)/g,(_,ac,col,ar,row)=>ac+columnName(colIndex(col)+(ac?0:p.col-master.at.col))+ar+(Number(row)+(ar?0:p.row-master.at.row))));}
+  if(!formula||node.getAttribute('t')==='array')return null;let valid=true;
+  const result=transformFormula(formula,part=>{if(part.includes('!')||part.includes('['))valid=false;for(const range of part.matchAll(/\$?([A-Z]{1,3})\$?\d+:\$?([A-Z]{1,3})\$?\d+/g))for(let i=colIndex(range[1]);i<=colIndex(range[2]);i++)if(!map.has(i))valid=false;
+   return part.replace(/(\$?)([A-Z]{1,3})(\$?)([1-9]\d*)/g,(ref,ac,col,ar,row)=>{const mapped=map.get(colIndex(col));if(mapped===undefined||Number(row)>r.report.lastRow){valid=false;return ref;}return ac+columnName(mapped)+ar+row;});});return valid?result:null;
+ }
+ text=text.replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g,row=>{
+  const n=Number(row.match(/\br="(\d+)"/)?.[1]);if(n>r.report.lastRow)return '';
+  return row.replace(/\sspans="[^"]*"/g,'').replace(/<c\b[^>]*?(?:\/>|>[\s\S]*?<\/c>)/g,cell=>{
+   const ref=cell.match(/\br="([A-Z]+\d+)"/)?.[1];if(!ref)return '';const p=address(ref);if(!map.has(p.col)||p.col>lastData&&n>4)return '';
+   const formula=localFormula(cell,p);cell=cell.replace(/\br="[^"]*"/,'r="'+columnName(map.get(p.col))+(p.row+1)+'"').replace(/<f\b[^>]*?(?:\/>|>[\s\S]*?<\/f>)/g,formula?'<f>'+xesc(formula)+'</f>':'');
+   if(/\bt="s"/.test(cell)){const si=strings[Number(cell.match(/<v>(\d+)<\/v>/)?.[1])];if(!si)throw Error('Не найден текст исходной ячейки '+ref);cell=cell.replace(/\bt="s"/,'t="inlineStr"').replace(/<v>\d+<\/v>/,si.replace(/^<si\b[^>]*>/,'<is>').replace(/<\/si>$/,'</is>'));}
+   return cell;
+  });
+ });
+ text=text.replace(/<cols\b[^>]*>[\s\S]*?<\/cols>/,cols=>'<cols>'+keep.map((old,next)=>{const original=(cols.match(/<col\b[^>]*\/>/g)||[]).find(c=>old+1>=Number(c.match(/\bmin="(\d+)"/)[1])&&old+1<=Number(c.match(/\bmax="(\d+)"/)[1]));return (original||'<col width="11.5" customWidth="1"/>').replace(/\s(?:min|max|hidden|collapsed)="[^"]*"/g,'').replace('<col','<col min="'+(next+1)+'" max="'+(next+1)+'"');}).join('')+'</cols>');
+ text=text.replace(/<dimension\b[^>]*\/>/,'<dimension ref="A1:'+columnName(keep.length-1)+r.report.lastRow+'"/>').replace(/<selection\b[^>]*\/>/g,'<selection activeCell="C5" sqref="C5"/>').replace(/<pane\b[^>]*\/>/g,'');
+ text=text.replace(/<mergeCells\b[^>]*>[\s\S]*?<\/mergeCells>/,block=>{const refs=[...block.matchAll(/\bref="([^"]*)"/g)].map(m=>remapRange(m[1])).filter(Boolean);return refs.length?'<mergeCells count="'+refs.length+'">'+refs.map(ref=>'<mergeCell ref="'+ref+'"/>').join('')+'</mergeCells>':'';});
+ // Rules and filters referring to removed columns are not valid in the snapshot.
+ text=text.replace(/<(conditionalFormatting|dataValidations|autoFilter|extLst)\b[^>]*?(?:\/>|>[\s\S]*?<\/\1>)/g,'');
+ const files={...source};files[sheetPath]=text;
+ files['xl/workbook.xml']=decode('xl/workbook.xml').replace(/<sheets>[\s\S]*?<\/sheets>/,'<sheets><sheet name="'+xesc(r.report.sheet)+'" sheetId="1" r:id="'+sheetId+'"/></sheets>').replace(/<definedNames\b[^>]*>[\s\S]*?<\/definedNames>/,'').replace(/<calcPr\b[^>]*\/>/,'<calcPr calcId="0" fullCalcOnLoad="1"/>');
+ files['xl/_rels/workbook.xml.rels']=relations.replace(/<Relationship\b[^>]*\/>/g,node=>{const d=tags(xml('<Relationships>'+node+'</Relationships>'),'Relationship')[0],type=d.getAttribute('Type').split('/').at(-1);return type==='worksheet'&&d.getAttribute('Id')!==sheetId||['sharedStrings','calcChain'].includes(type)?'':node;});
+ // Retain only parts reachable from the filtered package relationships. This
+ // removes other worksheets and their cached data, not merely their tab names.
+ const reachable=new Set(['[Content_Types].xml']),visit=path=>{if(reachable.has(path)||path&&files[path]===undefined)return;if(path)reachable.add(path);const slash=path.lastIndexOf('/'),relPath=path?(path.slice(0,slash+1)+'_rels/'+path.slice(slash+1)+'.rels'):'_rels/.rels';if(files[relPath]===undefined)return;reachable.add(relPath);for(const rel of tags(xml(typeof files[relPath]==='string'?files[relPath]:new TextDecoder().decode(files[relPath])),'Relationship'))if(rel.getAttribute('TargetMode')!=='External')visit(resolve(path||'root.xml',rel.getAttribute('Target')));};
+ visit('');for(const path of Object.keys(files))if(!reachable.has(path))delete files[path];
+ files['[Content_Types].xml']=decode('[Content_Types].xml').replace(/<Override\b[^>]*\/>/g,node=>reachable.has(node.match(/\bPartName="\/([^"]*)"/)?.[1])?node:'');
+ if(files['docProps/app.xml'])files['docProps/app.xml']=decode('docProps/app.xml').replace(/<TitlesOfParts>[\s\S]*?<\/TitlesOfParts>/,'<TitlesOfParts><vt:vector size="2" baseType="lpstr"><vt:lpstr>'+xesc(r.report.sheet)+'</vt:lpstr><vt:lpstr>Мост и авансы</vt:lpstr></vt:vector></TitlesOfParts>').replace(/(<vt:lpstr>Worksheets<\/vt:lpstr><\/vt:variant><vt:variant><vt:i4>)\d+/,(_,prefix)=>prefix+'2');
+ return files;
+}
 function formattedXlsxFile(){
  if(!book.sourceFiles)return xlsxFile(exportRows());
- const files={...book.sourceFiles},decode=name=>new TextDecoder().decode(files[name]),style=exportStyles(),extra=supplementsExportSheet(style);
+ const files=owner?contractorExportFiles():{...book.sourceFiles},decode=name=>typeof files[name]==='string'?files[name]:new TextDecoder().decode(files[name]),style=exportStyles(),extra=supplementsExportSheet(style);
  let workbook=decode('xl/workbook.xml'),relations=decode('xl/_rels/workbook.xml.rels'),types=decode('[Content_Types].xml'),number=1;
  while(files[`xl/worksheets/balanceSupplement${number}.xml`])number++;
  const sheetPath=`xl/worksheets/balanceSupplement${number}.xml`,drawingPath=`xl/drawings/balanceBridge${number}.xml`,sheetName=number===1?'Мост и авансы':`Мост и авансы ${number}`;
@@ -84,7 +133,7 @@ function formattedXlsxFile(){
  const rel=(id,type,target)=>`<Relationship Id="${id}" Type="${XLSX_NS}officeDocument/2006/relationships/${type}" Target="${target}"/>`,rels=body=>`<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="${XLSX_NS}package/2006/relationships">${body}</Relationships>`;
  const override=(path,type)=>`<Override PartName="/${path}" ContentType="application/vnd.openxmlformats-officedocument.${type}+xml"/>`;
  workbook=workbook.replace('</sheets>',`<sheet name="${sheetName}" sheetId="${sheetId}" r:id="${relId}"/></sheets>`);
- const active=Math.max(0,book.sheets.findIndex(s=>s.name===rConfig().sheet));workbook=workbook.replace(/<workbookView\b[^>]*\/>/g,m=>m.replace(/\sactiveTab="[^"]*"/g,'').replace('/>',` activeTab="${active}"/>`));
+ const active=owner?0:Math.max(0,book.sheets.findIndex(s=>s.name===rConfig().sheet));workbook=workbook.replace(/<workbookView\b[^>]*\/>/g,m=>m.replace(/\s(activeTab|firstSheet)="[^"]*"/g,'').replace('/>',` activeTab="${active}"/>`));
  relations=relations.replace('</Relationships>',rel(relId,'worksheet',`worksheets/balanceSupplement${number}.xml`)+'</Relationships>');types=types.replace('</Types>',override(sheetPath,'spreadsheetml.worksheet')+(extra.bridges.length?override(drawingPath,'drawing'):'')+'</Types>');
  files['xl/workbook.xml']=workbook;files['xl/_rels/workbook.xml.rels']=relations;files['[Content_Types].xml']=types;files['xl/styles.xml']=style.finish();files[sheetPath]=extra.xml;
  if(extra.bridges.length){files[`xl/worksheets/_rels/balanceSupplement${number}.xml.rels`]=rels(rel('rId1','drawing',`../drawings/balanceBridge${number}.xml`));files[drawingPath]=bridgeDrawingXml(extra.bridges);}

@@ -1,5 +1,5 @@
 'use strict';
-const APP_VERSION='1.8.5';
+const APP_VERSION='1.8.6';
 const DEFAULT_CONFIG={schemaVersion:1,title:'Баланс взаиморасчётов',sourceUrl:'',configUrl:'',workspaceUrl:'',credentials:'same-origin',defaultScale:1000000,defaultDecimals:0,showKpis:true,hideUnavailableContractors:true,advanceBlockPosition:'bridge',contractors:null,aiSearch:{endpoint:'',model:'',apiKey:'',mode:'ai'},reports:[
  {id:'rub-gross',label:'Рубли · с НДС',sheet:'БАЛАНС РУКОВОДСТВУ руб. с НДС',currencyMode:'rub',currency:'RUB',vat:'gross',firstRow:5,lastRow:38,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'C',lastColumn:'AQ',sourceScale:1000000,dateCell:'AT1',kpis:[5,7,12,35],bridge:{contract:[5],forecastContract:[6],paid:[13],advances:[17],retention:[32],payable:[27]},advanceMetrics:{acts:[8],uncredited:[24],credited:[20]},columns:{},rows:{9:{visible:false},11:{visible:false}}},
  {id:'fx-gross',label:'Валюта · с НДС',sheet:'Баланс ФЭК (валюта) с НДС',currencyMode:'contract',currency:'USD',vat:'gross',firstRow:6,lastRow:36,labelColumn:'B',contractorRow:1,contractRow:2,projectRow:3,rateRow:4,firstColumn:'E',lastColumn:'L',sourceScale:1000000,dateCell:'O1',kpis:[6,7,10,33],bridge:{contract:[6],forecastContract:[],paid:[11],advances:[15],retention:[30],payable:[25]},advanceMetrics:{acts:[8],uncredited:[22],credited:[18]},columns:{},rows:{}},

@@ -200,3 +200,12 @@ body{grid-template-rows:118px minmax(0,1fr) auto}.top{height:118px}
  #dashboard{padding-right:12px}
 }
 @media(max-width:700px){.top,.kpis-hidden .top{padding-right:10px}}
+
+/* When the header needs a second row, give its space back to the report. */
+@media(max-width:1800px){
+ .header-kpis{display:none!important}
+ body,body.kpis-hidden{grid-template-rows:126px minmax(0,1fr) auto}
+ .top,.kpis-hidden .top{height:126px;grid-template-columns:minmax(0,1fr);grid-template-rows:52px 60px}
+ .brand{grid-column:1;grid-row:1}.header-search{grid-column:1;grid-row:2}
+}
+@media(max-width:700px){body,body.kpis-hidden{grid-template-rows:none}.top,.kpis-hidden .top{height:auto;grid-template-rows:auto}.header-search{grid-row:auto}}

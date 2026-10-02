@@ -17,7 +17,7 @@ const root=path.resolve(__dirname,'..'),html=fs.readFileSync(root+'/index.html',
  let exportedBlob=null,exportedName='';w.URL.createObjectURL=blob=>{exportedBlob=blob;return 'blob:download-test';};
  d.addEventListener('click',event=>{if(event.target.tagName==='A'&&event.target.download){exportedName=event.target.download;event.preventDefault();}},true);
  d.getElementById('exportXlsx').click();assert.ok(exportedName.endsWith('.xlsx'));assert.equal(exportedBlob.type,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
- w.exportedBuffer=await exportedBlob.arrayBuffer();const downloadedBook=await run('readWorkbook(exportedBuffer,"download.xlsx")');assert.equal(downloadedBook.sheets.length,5);assert.equal(downloadedBook.sheets[4].name,'Мост и авансы');
+ w.exportedBuffer=await exportedBlob.arrayBuffer();const downloadedBook=await run('readWorkbook(exportedBuffer,"download.xlsx")');assert.equal(downloadedBook.sheets.length,2);assert.equal(downloadedBook.sheets[1].name,'Мост и авансы');assert.equal(downloadedBook.sheets[0].rows[0][2],'Подрядчик 1');assert.ok(!JSON.stringify(downloadedBook.sheets).includes('Подрядчик 2'));assert.ok(!JSON.stringify(downloadedBook.sheets).includes('Дог.10221'));if(process.env.BALANCE_EXPORT_SAMPLE)fs.writeFileSync(process.env.BALANCE_EXPORT_SAMPLE,Buffer.from(w.exportedBuffer));
  const search=d.getElementById('metricSearch');search.value='Банковская';search.dispatchEvent(new w.Event('input'));
  assert.ok(d.body.classList.contains('metric-searching'));assert.equal(w.getComputedStyle(d.querySelector('.balance-table')).height,'auto');
  assert.equal(w.getComputedStyle(d.getElementById('balanceColumn')).height,'auto');
