@@ -49,18 +49,22 @@ function supplementsExportSheet(style){
   for(const item of data)for(const cell of item.cells)if(cell.formula?.startsWith('L'))cell.formula=columnName(helperOffset)+cell.formula.slice(1);
 
  }
- widths.push({min:helperOffset+1,max:helperOffset+8,width:15,hidden:true});data.sort((a,b)=>a.row-b.row);return {xml:exportSheet(data,widths,merges,bridges.length>0),bridges};
+ widths.push({min:helperOffset+1,max:helperOffset+8,width:15,hidden:true});data.sort((a,b)=>a.row-b.row);
+ const heights=new Map(data.map(item=>[item.row,item.height||22]));for(const bridge of bridges){bridge.originY=0;for(let row=1;row<=bridge.row;row++)bridge.originY+=(heights.get(row)||22)*4/3;}
+ return {xml:exportSheet(data,widths,merges,bridges.length>0),bridges};
 }
 
 // Standard editable DrawingML shapes reproduce the app's waterfall without
 // chart caches, hidden chart series or chart-engine compatibility dependencies.
 function bridgeDrawingXml(bridges){
- let id=0;const objects=[],emu=v=>Math.round(v*9525);
+ let id=0,originY=0;const objects=[],emu=v=>Math.round(v*9525);
  function shape(row,x,y,w,h,text,fill='FFFFFF',font='4D5358',size=10,bold=false,line=null){
+  // Fixed worksheet coordinates keep all objects aligned independently of
+  // default-font column widths and editor-specific cell offset clamping.
   const n=++id,body=text===null?'':`<xdr:txBody><a:bodyPr wrap="square" lIns="0" tIns="0" rIns="0" bIns="0" anchor="ctr"/><a:lstStyle/>${String(text).split('\n').map(t=>`<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="ru-RU" sz="${size*100}"${bold?' b="1"':''}><a:solidFill><a:srgbClr val="${font}"/></a:solidFill><a:latin typeface="Segoe UI"/></a:rPr><a:t xml:space="preserve">${xesc(t)}</a:t></a:r><a:endParaRPr lang="ru-RU"/></a:p>`).join('')}</xdr:txBody>`;
-  objects.push(`<xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>${emu(x)}</xdr:colOff><xdr:row>${row}</xdr:row><xdr:rowOff>${emu(y)}</xdr:rowOff></xdr:from><xdr:ext cx="${emu(w)}" cy="${emu(h)}"/><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${n}" name="Мост ${n}"/><xdr:cNvSpPr txBox="${text!==null?1:0}"/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${emu(w)}" cy="${emu(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill?`<a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>`:'<a:noFill/>'}<a:ln>${line?`<a:solidFill><a:srgbClr val="${line}"/></a:solidFill>`:'<a:noFill/>'}</a:ln></xdr:spPr>${body}</xdr:sp><xdr:clientData/></xdr:oneCellAnchor>`);
+  objects.push(`<xdr:absoluteAnchor><xdr:pos x="${emu(x)}" y="${emu(originY+y)}"/><xdr:ext cx="${emu(w)}" cy="${emu(h)}"/><xdr:sp><xdr:nvSpPr><xdr:cNvPr id="${n}" name="Мост ${n}"/><xdr:cNvSpPr txBox="${text!==null?1:0}"/></xdr:nvSpPr><xdr:spPr><a:xfrm><a:off x="${emu(x)}" y="${emu(originY+y)}"/><a:ext cx="${emu(w)}" cy="${emu(h)}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${fill?`<a:solidFill><a:srgbClr val="${fill}"/></a:solidFill>`:'<a:noFill/>'}<a:ln>${line?`<a:solidFill><a:srgbClr val="${line}"/></a:solidFill>`:'<a:noFill/>'}</a:ln></xdr:spPr>${body}</xdr:sp><xdr:clientData/></xdr:absoluteAnchor>`);
  }
- for(const {data,row} of bridges){
+ for(const {data,row,originY:topOffset} of bridges){originY=topOffset;
   const steps=data.steps,limits=steps.flatMap(s=>[s.from,s.to]).filter(Number.isFinite),top=Math.max(0,...limits),bottom=Math.min(0,...limits),range=top-bottom||1,y=v=>54+(top-v)/range*225,width=1090,stepWidth=width/steps.length;
   shape(row,0,0,width,345,null,'FFFFFF');shape(row,0,2,width,25,'От контракта до остатка оплат',null,'4D5358',13,true);
   shape(row,8,y(0),width-16,1,null,'DBE2E5');
